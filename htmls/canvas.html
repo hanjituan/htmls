@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>识别二维码并绘制圈圈-jsQR</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+    <style>
+        #canvas {
+            width: 400px;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .nav {
+            padding: 16px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, .12), 0 0 6px rgba(0, 0, 0, .04);
+            margin-bottom: 16px;
+        }
+
+        .tip {
+            color: #999;
+            font-size: 12px;
+            margin-left: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="nav">
+        <input type="file" accept="image/*" id="fileInput">
+        <button id="next">下一张</button>
+        <span class="tip">模拟网络加载</span>
+    </div>
+    <canvas id="canvas"></canvas>
+</body>
+
+<script>
+    const fileInput = document.querySelector('#fileInput');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const nextBtn = document.querySelector('#next')
+
+    let currentIndex = 0;
+    const imageList = [
+        'https://gimg2.baidu.com/image_search/src=http%3A%2F%2Fss2.meipian.me%2Fusers%2F8007371%2Fa77b3f20bd214b4999c81b46d87f4fa1.jpg%3Fmeipian-raw%2Fbucket%2Fivwen%2Fkey%2FdXNlcnMvODAwNzM3MS9hNzdiM2YyMGJkMjE0YjQ5OTljODFiNDZkODdmNGZhMS5qcGc%3D%2Fsign%2F07eb1055fe8c26d8f8f2d30801adf3c9.jpg&refer=http%3A%2F%2Fss2.meipian.me&app=2002&size=f9999,10000&q=a80&n=0&g=0n&fmt=auto?sec=1726925285&t=7d506bc6636ca4358c9a9bd4e8e51090',
+        'https://img2.baidu.com/it/u=2600879056,3427546377&fm=253&fmt=auto&app=138&f=GIF?w=200&h=200',
+        'https://img0.baidu.com/it/u=492183828,100593095&fm=253&fmt=auto&app=138&f=GIF?w=200&h=200',
+        'https://i0.hdslb.com/bfs/album/2be4cc65a91a45606e354c0fb20c8cdd13cda25c.jpg'
+    ]
+
+    nextBtn.addEventListener('click', () => {
+        loadImage()
+    })
+
+    loadImage()
+
+    function loadImage() {
+        currentIndex++
+        if (currentIndex >= imageList.length) {
+            currentIndex = 0
+        }
+        const image = new Image();
+        image.crossOrigin = ''
+        image.src = imageList[currentIndex]
+        image.onload = function () {
+            canvas.width = image.width;
+            canvas.height = image.height;
+            ctx.drawImage(image, 0, 0);
+
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+            drawCircle(code)
+        }
+    }
+
+
+    function drawCircle(code) {
+        console.log(code);
+        if (!code) {
+            alert('未找到二维码！');
+            return
+        }
+        ctx.beginPath();
+        ctx.lineWidth = 6;
+        ctx.strokeStyle = 'red';
+        ctx.rect(code.location.topLeftCorner.x, code.location.topLeftCorner.y, code.location.bottomRightCorner.x - code.location.topLeftCorner.x, code.location.bottomRightCorner.y - code.location.topLeftCorner.y);
+        ctx.stroke();
+    }
+
+    // 上传图片
+    fileInput.addEventListener('change', function (e) {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = function (event) {
+            const img = new Image();
+            img.onload = function () {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+                drawCircle(code)
+            };
+
+            img.src = event.target.result;
+        }
+
+        reader.readAsDataURL(file);
+    });
+
+
+
+</script>
+
+</html>

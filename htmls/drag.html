@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<style>
+    .drag {
+        width: 100px;
+        height: 100px;
+        background-color: red;
+        position: absolute;
+        top: 0;
+        left: 0;
+        cursor: move;
+    }
+</style>
+
+</style>
+
+<body>
+    <div class="drag"></div>
+</body>
+
+
+<script>
+    const drag = document.querySelector('.drag')
+    const rect = { top: 0, left: 0, }
+
+    drag.addEventListener('mousedown', (e) => {
+        const clickPosition = {
+            x: e.clientX,
+            y: e.clientY
+        }
+        document.addEventListener('mousemove', move)
+        document.addEventListener('mouseup', up)
+        function move(e) {
+            const disX = e.clientX - clickPosition.x
+            const disY = e.clientY - clickPosition.y
+            drag.style.transform = `translate(${disX}px, ${disY}px)`
+            const { left, top } = getposition(drag)
+            rect.left = disX + left
+            rect.top = disY + top
+        }
+        function up() {
+            setTimeout(() => {
+                drag.style.transform = 'none'
+                drag.style.left = rect.left + 'px'
+                drag.style.top = rect.top + 'px'
+            }, 200);
+            document.removeEventListener('mousemove', move)
+            document.removeEventListener('mouseup', up)
+        }
+    })
+
+    function getposition(dom) {
+        let left = parseInt(dom.style.left) || 0
+        let top = parseInt(dom.style.top) || 0
+        return {
+            left,
+            top
+        }
+    }
+</script>
+
+</html>

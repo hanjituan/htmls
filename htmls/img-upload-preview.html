@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>canvas img</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        .upload-container {
+            max-height: calc(100vh - 40px);
+            overflow: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .preview-container {
+            margin-top: 20px;
+        }
+
+        #preview {
+            max-width: 500px;
+            max-height: 500px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease;
+            cursor: zoom-in;
+        }
+
+        #preview:hover {
+            transform: scale(1.02);
+        }
+
+        .custom-file-upload {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #4CAF50;
+            color: white;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        .custom-file-upload:hover {
+            background: #45a049;
+        }
+
+        #imageInput {
+            display: none;
+        }
+
+        .upload-title {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        /* 添加全屏模态框样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            cursor: zoom-out;
+            /* 修改背景过渡效果 */
+            transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .modal.fade-out {
+            background-color: rgba(0, 0, 0, 0);
+        }
+
+        .modal-content {
+            max-width: 90%;
+            max-height: 90vh;
+            margin: auto;
+            display: block;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(1);
+            animation: zoom-in 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            object-fit: contain;
+            cursor: move;
+            user-select: none;
+            opacity: 1;
+        }
+
+        .modal-content.zoom-out {
+            /* 缩小回预览图的大小和位置 */
+            transform: translate(var(--start-x), var(--start-y)) !important;
+            width: var(--preview-width) !important;
+            height: var(--preview-height) !important;
+            opacity: 0 !important;
+        }
+
+        @keyframes zoom-in {
+            from {
+                /* 从预览图的大小和位置开始 */
+                transform: translate(var(--start-x), var(--start-y));
+                width: var(--preview-width);
+                height: var(--preview-height);
+                opacity: 0;
+            }
+
+            to {
+                transform: translate(-50%, -50%) scale(1);
+                width: 90%;
+                height: 90vh;
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="upload-container">
+        <h2 class="upload-title">图片上传预览</h2>
+        <label class="custom-file-upload">
+            <input type="file" id="imageInput" accept="image/*">
+            选择图片
+        </label>
+        <div class="preview-container">
+            <img id="preview"
+                src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='300' viewBox='0 0 500 300'%3E%3Crect width='100%25' height='100%25' fill='%23f0f0f0'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%23999'%3E点击上传图片%3C/text%3E%3C/svg%3E"
+                alt="预览图片">
+        </div>
+    </div>
+
+    <!-- 添加模态框 -->
+    <div id="imageModal" class="modal">
+        <img class="modal-content" id="modalImage">
+    </div>
+
+    <script>
+        const imageInput = document.getElementById('imageInput');
+        const preview = document.getElementById('preview');
+        const modal = document.getElementById('imageModal');
+        const modalImage = document.getElementById('modalImage');
+
+        // 添加标志，表示是否已上传图片
+        let hasUploadedImage = false;
+
+        // 添加缩放相关变量
+        let scale = 1;
+        const SCALE_STEP = 0.1;
+        const MIN_SCALE = 0.1;
+        const MAX_SCALE = 3;
+
+        // 添加拖拽相关变量
+        let isDragging = false;
+        let startX, startY;
+        let translateX = 0;
+        let translateY = 0;
+
+        imageInput.addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+
+                reader.onload = function (e) {
+                    preview.src = e.target.result;
+                    modalImage.src = e.target.result;
+                    hasUploadedImage = true; // 设置标志为true
+                }
+
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // 鼠标按下事件
+        modalImage.addEventListener('mousedown', function (e) {
+            e.preventDefault(); // 防止拖拽时选中图片
+            isDragging = true;
+            startX = e.clientX - translateX;
+            startY = e.clientY - translateY;
+            modalImage.style.transition = 'none';
+        });
+
+        // 鼠标移动事件
+        modal.addEventListener('mousemove', function (e) {
+            if (!isDragging) return;
+
+            e.preventDefault();
+            translateX = e.clientX - startX;
+            translateY = e.clientY - startY;
+
+            modalImage.style.transform = `translate(calc(-50% + ${translateX}px), calc(-50% + ${translateY}px)) scale(${scale})`;
+        });
+
+        // 将鼠标释放事件从 window 移到 modal
+        modal.addEventListener('mouseup', function () {
+            if (isDragging) {
+                isDragging = false;
+                modalImage.style.transition = 'all 0.3s ease';
+            }
+        });
+
+        // 添加鼠标离开事件处理
+        modal.addEventListener('mouseleave', function () {
+            if (isDragging) {
+                isDragging = false;
+                modalImage.style.transition = 'all 0.3s ease';
+            }
+        });
+
+        // 重置缩放比例
+        function resetZoom() {
+            scale = 1;
+            translateX = 0;
+            translateY = 0;
+            modalImage.style.transform = `translate(-50%, -50%) scale(${scale})`;
+        }
+
+        // 修改计算动画起始位置的函数
+        function calculateStartPosition() {
+            const previewRect = preview.getBoundingClientRect();
+            const modalRect = modal.getBoundingClientRect();
+
+            // 计算预览图片的位置和大小
+            const startX = previewRect.left + 'px';
+            const startY = previewRect.top + 'px';
+            const previewWidth = previewRect.width + 'px';
+            const previewHeight = previewRect.height + 'px';
+
+            return { startX, startY, previewWidth, previewHeight };
+        }
+
+        // 修改打开模态框的处理
+        preview.addEventListener('click', function () {
+            if (!hasUploadedImage) {
+                return;
+            }
+
+            const { startX, startY, previewWidth, previewHeight } = calculateStartPosition();
+
+            // 设置CSS变量
+            modal.style.setProperty('--start-x', startX);
+            modal.style.setProperty('--start-y', startY);
+            modal.style.setProperty('--preview-width', previewWidth);
+            modal.style.setProperty('--preview-height', previewHeight);
+
+            modal.style.display = 'block';
+            modalImage.src = preview.src;
+            resetZoom();
+        });
+
+        // 将滚轮事件监听器从 modalImage 改为 modal
+        modal.addEventListener('wheel', function (e) {
+            e.preventDefault(); // 阻止默认滚动行为
+
+            // 只有当模态框显示时才处理滚轮事件
+            if (modal.style.display === 'block') {
+                // 根据滚轮方向确定是放大还是缩小
+                if (e.deltaY < 0) {
+                    // 向上滚动，放大
+                    scale = Math.min(scale + SCALE_STEP, MAX_SCALE);
+                } else {
+                    // 向下滚动，缩小
+                    scale = Math.max(scale - SCALE_STEP, MIN_SCALE);
+                }
+
+                // 应用缩放
+                modalImage.style.transform = `translate(calc(-50% + ${translateX}px), calc(-50% + ${translateY}px)) scale(${scale})`;
+            }
+        });
+
+        // 修改关闭模态框的处理
+        function closeModal() {
+            const { startX, startY, previewWidth, previewHeight } = calculateStartPosition();
+
+            // 设置CSS变量
+            modal.style.setProperty('--start-x', startX);
+            modal.style.setProperty('--start-y', startY);
+            modal.style.setProperty('--preview-width', previewWidth);
+            modal.style.setProperty('--preview-height', previewHeight);
+
+            modalImage.classList.add('zoom-out');
+            modal.classList.add('fade-out');
+
+            setTimeout(() => {
+                modal.style.display = 'none';
+                modalImage.classList.remove('zoom-out');
+                modal.classList.remove('fade-out');
+                resetZoom();
+            }, 400);
+        }
+
+        // 更新关闭事件处理
+        modal.addEventListener('click', function (e) {
+            // 只有点击背景时才关闭，防止点击图片时关闭
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+
+</html>

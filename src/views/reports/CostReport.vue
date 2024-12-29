@@ -1,0 +1,440 @@
+<template>
+    <div class="cost-report-container">
+        <div class="page-header">
+            <div class="header-left">
+                <h2>成本分析</h2>
+                <div class="header-actions">
+                    <el-radio-group v-model="timeRange" size="small">
+                        <el-radio-button label="week">本周</el-radio-button>
+                        <el-radio-button label="month">本月</el-radio-button>
+                        <el-radio-button label="quarter">本季度</el-radio-button>
+                        <el-radio-button label="year">本年</el-radio-button>
+                    </el-radio-group>
+                </div>
+            </div>
+            <div class="header-right">
+                <el-button type="primary" plain @click="exportReport">
+                    <el-icon>
+                        <Download />
+                    </el-icon>导出报表
+                </el-button>
+            </div>
+        </div>
+
+        <el-row :gutter="20">
+            <el-col :span="6">
+                <el-card class="data-card" shadow="hover">
+                    <template #header>
+                        <div class="card-header">
+                            <span>总成本支出</span>
+                            <el-tag type="danger">¥</el-tag>
+                        </div>
+                    </template>
+                    <div class="card-value">{{ totalCost.toLocaleString() }}</div>
+                    <div class="card-trend">
+                        <span :class="{ 'up': costChange > 0, 'down': costChange < 0 }">
+                            <el-icon>
+                                <CaretTop v-if="costChange > 0" />
+                                <CaretBottom v-else />
+                            </el-icon>
+                            {{ Math.abs(costChange) }}%
+                        </span>
+                        较上期
+                    </div>
+                </el-card>
+            </el-col>
+            <el-col :span="6">
+                <el-card class="data-card" shadow="hover">
+                    <template #header>
+                        <div class="card-header">
+                            <span>平均单品成本</span>
+                            <el-tag type="warning">¥</el-tag>
+                        </div>
+                    </template>
+                    <div class="card-value">{{ averageCost.toFixed(2) }}</div>
+                    <div class="card-desc">每个配方平均成本</div>
+                </el-card>
+            </el-col>
+            <el-col :span="6">
+                <el-card class="data-card" shadow="hover">
+                    <template #header>
+                        <div class="card-header">
+                            <span>配方数量</span>
+                            <el-tag type="info">个</el-tag>
+                        </div>
+                    </template>
+                    <div class="card-value">{{ recipeCount }}</div>
+                    <div class="card-desc">当前配方总数</div>
+                </el-card>
+            </el-col>
+            <el-col :span="6">
+                <el-card class="data-card" shadow="hover">
+                    <template #header>
+                        <div class="card-header">
+                            <span>原料数量</span>
+                            <el-tag type="info">种</el-tag>
+                        </div>
+                    </template>
+                    <div class="card-value">{{ ingredientCount }}</div>
+                    <div class="card-desc">使用中的原料数量</div>
+                </el-card>
+            </el-col>
+        </el-row>
+
+        <el-row :gutter="20" class="chart-row">
+            <el-col :span="12">
+                <el-card class="chart-card">
+                    <template #header>
+                        <div class="card-header">
+                            <span>成本构成分析</span>
+                        </div>
+                    </template>
+                    <div class="chart-container">
+                        <ECharts :options="compositionChartOptions" />
+                    </div>
+                </el-card>
+            </el-col>
+            <el-col :span="12">
+                <el-card class="chart-card">
+                    <template #header>
+                        <div class="card-header">
+                            <span>成本趋势分析</span>
+                        </div>
+                    </template>
+                    <div class="chart-container">
+                        <ECharts :options="trendChartOptions" />
+                    </div>
+                </el-card>
+            </el-col>
+        </el-row>
+
+        <el-card class="table-card">
+            <template #header>
+                <div class="card-header">
+                    <span>配方成本排名</span>
+                    <div class="header-actions">
+                        <el-input v-model="searchText" placeholder="搜索配方" clearable class="search-input">
+                            <template #prefix>
+                                <el-icon>
+                                    <Search />
+                                </el-icon>
+                            </template>
+                        </el-input>
+                    </div>
+                </div>
+            </template>
+            <el-table :data="recipeList" border style="width: 100%">
+                <el-table-column type="index" label="排名" width="80" align="center" />
+                <el-table-column prop="name" label="配方名称" min-width="150" />
+                <el-table-column prop="tags" label="标签" width="200">
+                    <template #default="{ row }">
+                        <el-tag v-for="tag in row.tags" :key="tag" :type="getTagType(tag)" class="mx-1">
+                            {{ tag }}
+                        </el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="ingredientCount" label="原料数" width="100" align="center">
+                    <template #default="{ row }">
+                        <el-tag type="info">{{ row.ingredients.length }}</el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column label="总成本" width="120" align="right" sortable>
+                    <template #default="{ row }">
+                        <span class="cost-value">¥ {{ calculateTotalCost(row).toFixed(2) }}</span>
+                    </template>
+                </el-table-column>
+                <el-table-column label="成本占比" width="120" align="right">
+                    <template #default="{ row }">
+                        <el-progress :percentage="calculateCostPercentage(row)"
+                            :color="getCostProgressColor(calculateCostPercentage(row))" :show-text="false"
+                            :stroke-width="8" />
+                        <span>{{ calculateCostPercentage(row).toFixed(1) }}%</span>
+                    </template>
+                </el-table-column>
+                <el-table-column label="成本分析" width="100" fixed="right">
+                    <template #default="{ row }">
+                        <el-button type="primary" link @click="showCostDetail(row)">
+                            <el-icon>
+                                <View />
+                            </el-icon>
+                            详情
+                        </el-button>
+                    </template>
+                </el-table-column>
+            </el-table>
+        </el-card>
+
+        <!-- 成本详情对话框 -->
+        <el-dialog v-model="detailVisible" title="成本详情分析" width="600px">
+            <div class="cost-detail">
+                <h4>{{ selectedRecipe?.name }}</h4>
+                <el-table :data="selectedRecipe?.ingredients" border size="small">
+                    <el-table-column prop="name" label="原料名称" min-width="120" />
+                    <el-table-column prop="amount" label="用量" width="120" align="right">
+                        <template #default="{ row }">
+                            {{ row.amount }} {{ row.unit }}
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="单价" width="120" align="right">
+                        <template #default="{ row }">
+                            ¥ {{ row.price }} / {{ row.unit }}
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="成本" width="120" align="right">
+                        <template #default="{ row }">
+                            ¥ {{ (row.amount * row.price).toFixed(2) }}
+                        </template>
+                    </el-table-column>
+                </el-table>
+                <div class="cost-summary">
+                    <span>总成本：¥ {{ selectedRecipeCost.toFixed(2) }}</span>
+                </div>
+            </div>
+        </el-dialog>
+    </div>
+</template>
+
+<script setup>
+import { ref, computed } from 'vue'
+import ECharts from '@/components/ECharts.vue'
+
+// 状态定义
+const timeRange = ref('month')
+const searchText = ref('')
+const detailVisible = ref(false)
+const selectedRecipe = ref(null)
+
+// 模拟数据
+const totalCost = ref(256890.75)
+const costChange = ref(-5.2)
+const averageCost = ref(85.63)
+const recipeCount = ref(150)
+const ingredientCount = ref(45)
+
+// 模拟配方列表数据
+const recipeList = ref([
+    {
+        id: 1,
+        name: '提拉米苏',
+        tags: ['甜点', '蛋糕'],
+        ingredients: [
+            { name: '马斯卡彭奶酪', amount: 500, unit: 'g', price: 0.08 },
+            { name: '手指饼干', amount: 200, unit: 'g', price: 0.05 },
+            { name: '咖啡', amount: 300, unit: 'ml', price: 0.02 }
+        ]
+    }
+    // ... 更多数据
+])
+
+// 计算属性
+const selectedRecipeCost = computed(() => {
+    if (!selectedRecipe.value) return 0
+    return selectedRecipe.value.ingredients.reduce((sum, item) => {
+        return sum + item.amount * item.price
+    }, 0)
+})
+
+// 工具函数
+const getTagType = (tag) => {
+    const types = {
+        '甜点': 'success',
+        '面包': 'warning',
+        '蛋糕': 'danger'
+    }
+    return types[tag] || 'info'
+}
+
+const calculateTotalCost = (recipe) => {
+    return recipe.ingredients.reduce((sum, item) => sum + item.amount * item.price, 0)
+}
+
+const calculateCostPercentage = (recipe) => {
+    const cost = calculateTotalCost(recipe)
+    return (cost / totalCost.value) * 100
+}
+
+const getCostProgressColor = (percentage) => {
+    if (percentage > 15) return '#f56c6c'
+    if (percentage > 10) return '#e6a23c'
+    return '#67c23a'
+}
+
+// 事件处理
+const showCostDetail = (recipe) => {
+    selectedRecipe.value = recipe
+    detailVisible.value = true
+}
+
+const exportReport = () => {
+    // 导出报表逻辑
+}
+
+const compositionChartOptions = ref({
+    title: {
+        text: '成本构成分析'
+    },
+    tooltip: {
+        trigger: 'item'
+    },
+    series: [
+        {
+            type: 'pie',
+            radius: '50%',
+            data: [
+                { value: 1048, name: '甜点' },
+                { value: 735, name: '面包' },
+                { value: 580, name: '蛋糕' }
+            ]
+        }
+    ]
+})
+
+const trendChartOptions = ref({
+    title: {
+        text: '成本趋势分析'
+    },
+    tooltip: {
+        trigger: 'axis'
+    },
+    xAxis: {
+        type: 'category',
+        data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+    },
+    yAxis: {
+        type: 'value'
+    },
+    series: [
+        {
+            data: [820, 932, 901, 934, 1290, 1330, 1320],
+            type: 'line'
+        }
+    ]
+})
+</script>
+
+<style scoped>
+.cost-report-container {
+    padding: 20px;
+    background-color: #f5f7fa;
+    min-height: calc(100vh - 60px);
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.header-left h2 {
+    margin: 0;
+    font-size: 24px;
+    color: #1f2f3d;
+    font-weight: 500;
+}
+
+.header-right {
+    display: flex;
+    gap: 12px;
+}
+
+.data-card {
+    margin-bottom: 20px;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-value {
+    font-size: 28px;
+    font-weight: bold;
+    color: #1f2f3d;
+    margin: 10px 0;
+}
+
+.card-trend {
+    font-size: 14px;
+    color: #909399;
+}
+
+.card-trend .up {
+    color: #f56c6c;
+}
+
+.card-trend .down {
+    color: #67c23a;
+}
+
+.card-desc {
+    font-size: 14px;
+    color: #909399;
+}
+
+.chart-row {
+    margin-bottom: 20px;
+}
+
+.chart-card {
+    height: 400px;
+}
+
+.chart-container {
+    height: 320px;
+}
+
+.chart-placeholder {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #fafafa;
+    color: #909399;
+    border: 1px dashed #dcdfe6;
+}
+
+.search-input {
+    width: 240px;
+}
+
+.cost-value {
+    color: #f56c6c;
+    font-weight: 500;
+}
+
+.cost-detail h4 {
+    margin: 0 0 16px 0;
+    color: #606266;
+}
+
+.cost-summary {
+    margin-top: 16px;
+    text-align: right;
+    color: #f56c6c;
+    font-weight: bold;
+}
+
+.mx-1 {
+    margin: 0 4px;
+}
+
+:deep(.el-card) {
+    border-radius: var(--border-radius-base);
+}
+
+:deep(.el-progress-bar__outer) {
+    border-radius: var(--border-radius-base);
+}
+
+:deep(.el-progress-bar__inner) {
+    border-radius: var(--border-radius-base);
+}
+</style>

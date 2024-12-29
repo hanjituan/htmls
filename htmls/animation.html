@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<style>
+    .ball {
+        width: 100px;
+        height: 100px;
+        background-color: red;
+        position: absolute;
+        top: 0;
+        left: 0;
+        border-radius: 50%;
+    }
+
+    .ripple {
+        position: fixed;
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        border: 1px solid #eee;
+        background-color: #eee;
+        transform: scale(0);
+        animation: ripple 0.3s linear;
+    }
+
+    @keyframes ripple {
+        to {
+            transform: scale(1.5);
+        }
+    }
+</style>
+
+<body>
+    <div class="ball"> </div>
+</body>
+
+<script>
+    const ball = document.querySelector('.ball')
+
+    window.addEventListener('click', (e) => {
+        // 鼠标点击的位置
+        const { clientX, clientY } = e
+        // 获取小球的宽高, 位置信息
+        const { width, height, x, y } = ball.getBoundingClientRect()
+        // 增加水波纹
+        addRipple(e)
+        // 清除小球之前的动画
+        ball.getAnimations().forEach((animation) => {
+            animation.cancel()
+        })
+
+        // 计算小球的旋转角度
+        const rad = Math.atan2(clientY - y, clientX - x)
+        const deg = rad * 180 / Math.PI
+
+        // 小球的目标位置
+        const amit = { x: clientX - width / 2, y: clientY - height / 2 }
+
+        ball.animate(
+            [
+                {
+                    transform: `translate(${x}px, ${y}px) rotate(${deg}deg)`,
+                    easing: 'ease-out',
+                },
+                {
+                    transform: `translate(${x}px, ${y}px) rotate(${deg}deg) scaleX(1.5)`,
+                    offset: 0.6
+                },
+                {
+                    transform: `translate(${amit.x}px, ${amit.y}px) rotate(${deg}deg) scaleX(1.5)`,
+                    offset: 0.8,
+                    easing: 'ease-in',
+                },
+                {
+                    transform: `translate(${amit.x}px, ${amit.y}px) rotate(${deg}deg) scaleX(1)`,
+                },
+            ],
+            {
+                duration: 1000,
+                fill: 'forwards',
+            })
+    })
+
+    function addRipple({ clientX: x, clientY: y }) {
+        const ripple = document.createElement('div')
+        ripple.classList.add('ripple')
+        ripple.style.left = `${x - 50}px`
+        ripple.style.top = `${y - 50}px`
+        ripple.style.position = `fixed`
+        document.body.appendChild(ripple)
+        setTimeout(() => {
+            ripple.remove()
+        }, 300)
+    }
+</script>
+
+</html>

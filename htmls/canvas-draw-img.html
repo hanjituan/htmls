@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片绘制工具</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .tools {
+            margin-bottom: 20px;
+        }
+
+        #canvas {
+            border: 2px solid #ddd;
+            cursor: crosshair;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            margin: 0 5px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background: #45a049;
+        }
+
+        #imageInput {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="tools">
+            <input type="file" id="imageInput" accept="image/*">
+            <button class="btn" onclick="document.getElementById('imageInput').click()">选择图片</button>
+            <button class="btn" id="clearBtn">清除绘制</button>
+            <button class="btn" id="undoBtn">撤销</button>
+        </div>
+        <canvas id="canvas" width="800" height="600"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const imageInput = document.getElementById('imageInput');
+        const clearBtn = document.getElementById('clearBtn');
+        const undoBtn = document.getElementById('undoBtn');
+
+        let isDrawing = false;
+        let startX = 0;
+        let startY = 0;
+        let currentImage = null;
+        let rectangles = [];
+        let tempRect = null;
+        let selectedRect = null;
+        let isDragging = false;
+        let isResizing = false;
+        let resizeHandle = null;
+        const handleSize = 8; // 调整大小的手柄尺寸
+
+        // 添加常量定义
+        const CANVAS_WIDTH = 800;  // 画布固定宽度
+        const CANVAS_HEIGHT = 600; // 画布固定高度
+
+        // 初始化画布背景
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 处理图片上传
+        imageInput.addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (event) {
+                    const img = new Image();
+                    img.onload = function () {
+                        // 计算图片缩放比例，保持宽高比
+                        const scale = Math.min(
+                            CANVAS_WIDTH / img.width,
+                            CANVAS_HEIGHT / img.height
+                        );
+
+                        // 计算缩放后的尺寸
+                        const scaledWidth = img.width * scale;
+                        const scaledHeight = img.height * scale;
+
+                        // 计算居中位置
+                        const offsetX = (CANVAS_WIDTH - scaledWidth) / 2;
+                        const offsetY = (CANVAS_HEIGHT - scaledHeight) / 2;
+
+                        // 清除之前的绘制
+                        ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                        // 绘制白色背景
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                        // 绘制缩放后的图片
+                        ctx.drawImage(img, offsetX, offsetY, scaledWidth, scaledHeight);
+
+                        // 保存图片信息以供后续使用
+                        currentImage = {
+                            element: img,
+                            x: offsetX,
+                            y: offsetY,
+                            width: scaledWidth,
+                            height: scaledHeight
+                        };
+
+                        rectangles = []; // 清除矩形历史
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // 添加一个限制值在范围内的辅助函数
+        function clamp(value, min, max) {
+            return Math.min(Math.max(value, min), max);
+        }
+
+        // 鼠标按下事件
+        canvas.addEventListener('mousedown', function (e) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            // 检查是否在图片范围内
+            if (currentImage && !(
+                mouseX >= currentImage.x &&
+                mouseX <= currentImage.x + currentImage.width &&
+                mouseY >= currentImage.y &&
+                mouseY <= currentImage.y + currentImage.height
+            )) {
+                return; // 如果不在图片范围内，直接返回
+            }
+
+            // 检查是否点击了调整大小的手柄
+            if (selectedRect) {
+                resizeHandle = getResizeHandle(mouseX, mouseY, selectedRect);
+                if (resizeHandle) {
+                    isResizing = true;
+                    return;
+                }
+            }
+
+            // 检查是否点击了已有的矩形
+            let clickedRect = null;
+            for (let i = rectangles.length - 1; i >= 0; i--) {
+                if (isPointInRect(mouseX, mouseY, rectangles[i])) {
+                    clickedRect = rectangles[i];
+                    break;
+                }
+            }
+
+            if (clickedRect) {
+                selectedRect = clickedRect;
+                isDragging = true;
+                startX = mouseX - clickedRect.x;
+                startY = mouseY - clickedRect.y;
+            } else {
+                selectedRect = null;
+                isDrawing = true;
+                startX = mouseX;
+                startY = mouseY;
+                tempRect = null;
+            }
+            redrawCanvas();
+        });
+
+        // 鼠标移动事件
+        canvas.addEventListener('mousemove', function (e) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            // 更新鼠标样式
+            if (selectedRect) {
+                const handle = getResizeHandle(mouseX, mouseY, selectedRect);
+                if (handle) {
+                    canvas.style.cursor = handle.cursor;
+                } else if (isPointInRect(mouseX, mouseY, selectedRect)) {
+                    canvas.style.cursor = 'move';
+                } else {
+                    canvas.style.cursor = 'crosshair';
+                }
+            }
+
+            if (isResizing && selectedRect && resizeHandle) {
+                // 获取图片边界
+                const imgBounds = {
+                    left: currentImage.x,
+                    right: currentImage.x + currentImage.width,
+                    top: currentImage.y,
+                    bottom: currentImage.y + currentImage.height
+                };
+
+                // 调整大小时限制在图片边界内
+                if (resizeHandle.position.includes('r')) { // 右侧手柄
+                    const newWidth = mouseX - selectedRect.x;
+                    selectedRect.width = clamp(newWidth, 0, imgBounds.right - selectedRect.x);
+                }
+                if (resizeHandle.position.includes('b')) { // 底部手柄
+                    const newHeight = mouseY - selectedRect.y;
+                    selectedRect.height = clamp(newHeight, 0, imgBounds.bottom - selectedRect.y);
+                }
+                if (resizeHandle.position.includes('l')) { // 左侧手柄
+                    const newX = clamp(mouseX, imgBounds.left, selectedRect.x + selectedRect.width);
+                    selectedRect.width += (selectedRect.x - newX);
+                    selectedRect.x = newX;
+                }
+                if (resizeHandle.position.includes('t')) { // 顶部手柄
+                    const newY = clamp(mouseY, imgBounds.top, selectedRect.y + selectedRect.height);
+                    selectedRect.height += (selectedRect.y - newY);
+                    selectedRect.y = newY;
+                }
+                redrawCanvas();
+            } else if (isDragging && selectedRect) {
+                // 拖动时限制在图片边界内
+                const newX = mouseX - startX;
+                const newY = mouseY - startY;
+
+                selectedRect.x = clamp(
+                    newX,
+                    currentImage.x,
+                    currentImage.x + currentImage.width - selectedRect.width
+                );
+                selectedRect.y = clamp(
+                    newY,
+                    currentImage.y,
+                    currentImage.y + currentImage.height - selectedRect.height
+                );
+                redrawCanvas();
+            } else if (isDrawing) {
+                // 绘制新矩形时限制在图片边界内
+                redrawCanvas();
+
+                let x = clamp(startX, currentImage.x, currentImage.x + currentImage.width);
+                let y = clamp(startY, currentImage.y, currentImage.y + currentImage.height);
+                let width = clamp(mouseX - x, 0, currentImage.x + currentImage.width - x);
+                let height = clamp(mouseY - y, 0, currentImage.y + currentImage.height - y);
+
+                ctx.strokeStyle = '#ff0000';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x, y, width, height);
+
+                tempRect = {
+                    x: x,
+                    y: y,
+                    width: width,
+                    height: height
+                };
+            }
+        });
+
+        // 鼠标释放事件
+        canvas.addEventListener('mouseup', function () {
+            if (isDrawing && tempRect) {
+                rectangles.push(tempRect);
+                selectedRect = tempRect;
+            }
+            isDrawing = false;
+            isDragging = false;
+            isResizing = false;
+            resizeHandle = null;
+            redrawCanvas();
+        });
+
+        // 添加鼠标离开事件
+        canvas.addEventListener('mouseleave', function () {
+            isDrawing = false;
+            isDragging = false;
+            isResizing = false;
+            resizeHandle = null;
+        });
+
+        // 重绘画布函数
+        function redrawCanvas() {
+            ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            // 绘制白色背景
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            // 绘制图片
+            if (currentImage) {
+                ctx.drawImage(
+                    currentImage.element,
+                    currentImage.x,
+                    currentImage.y,
+                    currentImage.width,
+                    currentImage.height
+                );
+            }
+
+            // 绘制所有矩形
+            rectangles.forEach((rect, index) => {
+                ctx.strokeStyle = selectedRect === rect ? '#00ff00' : '#ff0000';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+
+                // 如果是选中的矩形，绘制调整大小的手柄
+                if (selectedRect === rect) {
+                    drawResizeHandles(rect);
+                }
+            });
+        }
+
+        // 添加绘制调整手柄的函数
+        function drawResizeHandles(rect) {
+            const handles = getHandlePositions(rect);
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = '#00ff00';
+
+            handles.forEach(handle => {
+                ctx.beginPath();
+                ctx.rect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize);
+                ctx.fill();
+                ctx.stroke();
+            });
+        }
+
+        // 获取手柄位置的函数
+        function getHandlePositions(rect) {
+            return [
+                { x: rect.x, y: rect.y, cursor: 'nw-resize', position: 'tl' },
+                { x: rect.x + rect.width, y: rect.y, cursor: 'ne-resize', position: 'tr' },
+                { x: rect.x, y: rect.y + rect.height, cursor: 'sw-resize', position: 'bl' },
+                { x: rect.x + rect.width, y: rect.y + rect.height, cursor: 'se-resize', position: 'br' }
+            ];
+        }
+
+        // 检查点是否在矩形内部
+        function isPointInRect(x, y, rect) {
+            return x >= rect.x && x <= rect.x + rect.width &&
+                y >= rect.y && y <= rect.y + rect.height;
+        }
+
+        // 检查点是否在手柄上
+        function getResizeHandle(x, y, rect) {
+            if (!rect) return null;
+
+            const handles = getHandlePositions(rect);
+            for (let handle of handles) {
+                if (x >= handle.x - handleSize / 2 && x <= handle.x + handleSize / 2 &&
+                    y >= handle.y - handleSize / 2 && y <= handle.y + handleSize / 2) {
+                    return handle;
+                }
+            }
+            return null;
+        }
+
+        // 清除按钮事件
+        clearBtn.addEventListener('click', function () {
+            rectangles = [];
+            redrawCanvas();
+        });
+
+        // 撤销按钮事件
+        undoBtn.addEventListener('click', function () {
+            rectangles.pop();
+            redrawCanvas();
+        });
+    </script>
+</body>
+
+</html>
