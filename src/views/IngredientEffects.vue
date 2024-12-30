@@ -1,72 +1,97 @@
 <template>
-    <div class="min-h-screen bg-gray-50">
-        <div class="page-header mb-4">
-            <div class="flex flex-col gap-4">
-                <h2 class="text-2xl font-medium text-gray-800 m-0">配料作用说明</h2>
-                <div class="flex items-center gap-3">
-                    <el-select v-model="filterCategory" placeholder="分类" clearable class="filter-select">
-                        <el-option label="全部" value="" />
-                        <el-option v-for="category in categories" :key="category.value" :label="category.label"
-                            :value="category.value">
-                            <el-tag :type="getCategoryTagType(category.value)">{{ category.label }}</el-tag>
-                        </el-option>
-                    </el-select>
-                    <el-input v-model="searchText" placeholder="搜索配料" clearable class="search-input">
-                        <template #prefix>
-                            <el-icon>
-                                <Search />
-                            </el-icon>
-                        </template>
-                    </el-input>
-                </div>
+    <div class="min-h-screen bg-gray-50 p-6">
+        <div class="max-w-2xl mx-auto text-center mb-8">
+            <div class="mb-4 flex justify-center gap-2">
+                <el-input v-model="searchText" placeholder="搜索配料名称或功效..." clearable class="w-90">
+                    <template #prefix>
+                        <el-icon class="text-gray-400">
+                            <Search />
+                        </el-icon>
+                    </template>
+                </el-input>
+                <el-button type="primary" plain @click="toggleAllImages">
+                    <el-icon class="mr-1">
+                        <component :is="showAllImages ? 'Document' : 'Picture'" />
+                    </el-icon>
+                    {{ showAllImages ? '显示内容' : '显示图片' }}
+                </el-button>
+            </div>
+            <div class="flex justify-center gap-2">
+                <el-tag v-for="category in categories" :key="category.value" :type="getCategoryTagType(category.value)"
+                    :effect="filterCategory === category.value ? 'dark' : 'light'" class="cursor-pointer text-sm"
+                    @click="toggleCategory(category.value)">
+                    {{ category.label }}
+                </el-tag>
+                <el-tag v-if="filterCategory" type="info" effect="plain" class="cursor-pointer text-sm"
+                    @click="filterCategory = ''">
+                    清除筛选
+                </el-tag>
             </div>
         </div>
 
+        <!-- 卡片展示区域 -->
         <el-row :gutter="20">
             <el-col v-for="item in filteredEffects" :key="item.id" :xs="24" :sm="12" :md="8" :lg="6">
-                <el-card class="mb-5 transform transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
-                    <template #header>
-                        <div class="flex justify-between items-center">
-                            <span class="text-base font-medium">{{ item.name }}</span>
-                            <el-tag :type="getCategoryTagType(item.category)" size="small">
-                                {{ categories.find(c => c.value === item.category)?.label }}
-                            </el-tag>
+                <el-card class="mb-5 h-[450px] relative overflow-hidden">
+                    <!-- 标题部分 -->
+                    <div class="card-header flex justify-between items-center p-4 border-b">
+                        <span class="text-base font-medium">
+                            {{ item.name }}
+                        </span>
+                        <el-tag :type="getCategoryTagType(item.category)" size="small">
+                            {{ categories.find(c => c.value === item.category)?.label }}
+                        </el-tag>
+                    </div>
+
+                    <!-- 内容区域 -->
+                    <div class="relative h-[320px] overflow-hidden">
+                        <!-- 切换按钮 -->
+                        <div class="absolute right-0 top-1/3 -translate-y-1/2 z-10">
+                            <el-button circle size="small" @click="toggleImage(item.id)">
+                                <el-icon>
+                                    <Picture v-if="!showImage[item.id]" />
+                                    <Document v-else />
+                                </el-icon>
+                            </el-button>
                         </div>
-                    </template>
-                    <div class="flex flex-col gap-4">
-                        <div class="space-y-2">
-                            <h4 class="text-sm text-gray-600 font-medium">主要作用</h4>
-                            <p class="text-gray-600 leading-relaxed">{{ item.mainEffect }}</p>
-                        </div>
-                        <div class="effect-section">
-                            <h4>使用建议</h4>
-                            <p>{{ item.usage }}</p>
-                        </div>
-                        <div class="effect-section">
-                            <h4>安全剂量</h4>
-                            <el-progress :percentage="item.safetyLevel" :status="getSafetyStatus(item.safetyLevel)"
-                                :stroke-width="8" :format="formatSafetyLevel" />
-                            <p class="safety-note" :class="getSafetyClass(item.safetyLevel)">
-                                {{ item.safetyNote }}
-                            </p>
-                        </div>
-                        <div class="effect-section" v-if="item.warnings">
-                            <h4>注意事项</h4>
-                            <ul class="warning-list">
-                                <li v-for="(warning, index) in item.warnings" :key="index">
-                                    {{ warning }}
-                                </li>
-                            </ul>
-                        </div>
-                        <div class="effect-section" v-if="item.nutrition">
-                            <h4>营养成分</h4>
-                            <div class="nutrition-info">
-                                <div v-for="(value, key) in item.nutrition" :key="key" class="nutrition-item">
-                                    <span class="label">{{ getNutritionLabel(key) }}</span>
-                                    <span class="value">{{ value }}{{ getNutritionUnit(key) }}</span>
+
+                        <div class="flex transition-transform duration-300 w-[200%] h-full"
+                            style="transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);"
+                            :style="{ transform: `translateX(${showImage[item.id] ? '-50%' : '0'})` }">
+                            <!-- 正面内容 -->
+                            <div class="w-1/2 flex-shrink-0">
+                                <div
+                                    class="h-[330px] overflow-y-auto space-y-4 p-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                                    <div class="space-y-2">
+                                        <h4 class="text-sm text-gray-600 font-medium">主要作用</h4>
+                                        <p class="text-gray-600 leading-relaxed">{{ item.mainEffect }}</p>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <h4 class="text-sm text-gray-600 font-medium">使用建议</h4>
+                                        <p class="text-gray-600 leading-relaxed">{{ item.usage }}</p>
+                                    </div>
                                 </div>
                             </div>
-                            <p class="daily-value" v-if="item.dailyValue">{{ item.dailyValue }}</p>
+                            <!-- 背面内容 -->
+                            <div class="w-1/2 flex-shrink-0">
+                                <div class="relative h-full">
+                                    <img :src="item.image || defaultImage" :alt="item.name"
+                                        @error="e => e.target.src = defaultImage" class="w-full h-full object-cover" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 安全剂量部分 -->
+                    <div class="absolute bottom-0 left-0 right-0 p-4 border-t bg-white">
+                        <div class="space-y-2">
+                            <h4 class="text-sm text-gray-600 font-medium">安全剂量</h4>
+                            <el-progress :percentage="item.safetyLevel" :status="getSafetyStatus(item.safetyLevel)"
+                                :stroke-width="8" :format="formatSafetyLevel" />
+                            <p class="text-gray-600 text-sm truncate" :class="getSafetyClass(item.safetyLevel)"
+                                :title="item.safetyNote">
+                                {{ item.safetyNote }}
+                            </p>
                         </div>
                     </div>
                 </el-card>
@@ -76,12 +101,15 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { Search } from '@element-plus/icons-vue'
+import { ref, computed, onMounted } from 'vue'
+import { Search, Picture, Document } from '@element-plus/icons-vue'
+import { getIngredientEffects } from '@/mock/ingredientEffects'
 
-// 状态定义
+// 搜索文本
 const searchText = ref('')
 const filterCategory = ref('')
+const effectsData = ref([])
+const loading = ref(false)
 
 // 分类定义
 const categories = [
@@ -91,101 +119,12 @@ const categories = [
     { value: 'other', label: '其他' }
 ]
 
-// 模拟数据
-const effectsData = [
-    {
-        id: 1,
-        name: '高筋面粉',
-        category: 'main',
-        mainEffect: '富含蛋白质，能形成面团的筋力，是面包等发酵面点的主要原料。',
-        usage: '适量使用，根据配方比例添加。',
-        safetyLevel: 95,
-        safetyNote: '安全食材，一般人群可放心使用。',
-        nutrition: {
-            protein: 12.5,
-            fat: 1.3,
-            carbs: 74.2,
-            fiber: 2.8
-        },
-        dailyValue: '每100g面粉含热量348千卡',
-        warnings: [
-            '麸质过敏者慎用',
-            '糖尿病人请控制用量'
-        ]
-    },
-    {
-        id: 2,
-        name: '酵母',
-        category: 'sub',
-        mainEffect: '使面团发酵，产生二氧化碳，使面包蓬松。',
-        usage: '按配方比例少量使用，过量会影响口感。',
-        safetyLevel: 85,
-        safetyNote: '适量使用安全，过量可能引起胀气。',
-        warnings: [
-            '对酵母过敏者禁用',
-            '建议每100g面粉使用1-2g干酵母'
-        ]
-    },
-    {
-        id: 3,
-        name: '香草精',
-        category: 'seasoning',
-        mainEffect: '增添香草风味，提升烘焙产品的香气。',
-        usage: '少量使用，过量会影响口感。',
-        safetyLevel: 60,
-        safetyNote: '建议适量使用，注意用量控制。',
-        warnings: [
-            '含有酒精成分，特殊人群慎用',
-            '建议每100g面粉使用不超过2ml'
-        ]
-    },
-    {
-        id: 4,
-        name: '黄油',
-        category: 'main',
-        mainEffect: '提供油脂，增加产品的香浓度和口感，使烘焙制品更加松软可口。',
-        usage: '常温软化后使用，避免高温导致油脂分离。',
-        safetyLevel: 75,
-        safetyNote: '适量食用，注意控制用量。',
-        nutrition: {
-            protein: 0.9,
-            fat: 81.1,
-            carbs: 0.1,
-            fiber: 0
-        },
-        dailyValue: '每100g含热量717千卡',
-        warnings: [
-            '高血脂患者慎用',
-            '建议冷藏保存',
-            '避免过度加热'
-        ]
-    },
-    {
-        id: 5,
-        name: '泡打粉',
-        category: 'sub',
-        mainEffect: '化学发酵剂，使面团膨松，提供蓬松的口感。',
-        usage: '少量使用，过量会影响口感和健康。',
-        safetyLevel: 70,
-        safetyNote: '建议严格按配方用量使用。',
-        nutrition: {
-            sodium: 1200, // 每100g含钠量（mg）
-        },
-        dailyValue: '每次使用不超过3g/500g面粉',
-        warnings: [
-            '高血压患者慎用',
-            '避免与酸性配料同时使用',
-            '建议密封保存'
-        ]
-    },
-    // ... 更多数据
-]
+// 默认图片
+const defaultImage = 'https://img1.baidu.com/it/u=2641428390,54275400&fm=253&fmt=auto&app=138&f=JPEG?w=800&h=1069'
 
-const effects = ref(effectsData)
-
-// 计算属性
+// 过滤后的配料列表
 const filteredEffects = computed(() => {
-    let result = effects.value
+    let result = effectsData.value
 
     if (filterCategory.value) {
         result = result.filter(item => item.category === filterCategory.value)
@@ -195,7 +134,8 @@ const filteredEffects = computed(() => {
         const keyword = searchText.value.toLowerCase()
         result = result.filter(item =>
             item.name.toLowerCase().includes(keyword) ||
-            item.mainEffect.toLowerCase().includes(keyword)
+            item.mainEffect.toLowerCase().includes(keyword) ||
+            item.usage.toLowerCase().includes(keyword)
         )
     }
 
@@ -220,9 +160,9 @@ const getSafetyStatus = (level) => {
 }
 
 const getSafetyClass = (level) => {
-    if (level >= 80) return 'safe'
-    if (level >= 60) return 'warning'
-    return 'danger'
+    if (level >= 80) return 'text-green-500'
+    if (level >= 60) return 'text-yellow-500'
+    return 'text-red-500'
 }
 
 const formatSafetyLevel = (percentage) => {
@@ -236,65 +176,81 @@ const formatSafetyLevel = (percentage) => {
     return levels.low
 }
 
-// 营养成分标签
-const getNutritionLabel = (key) => {
-    const labels = {
-        protein: '蛋白质',
-        fat: '脂肪',
-        carbs: '碳水化合物',
-        fiber: '膳食纤维',
-        sodium: '钠'
+// 获取数据
+const fetchData = async () => {
+    try {
+        loading.value = true
+        effectsData.value = await getIngredientEffects()
+    } catch (error) {
+        console.error('获取配料数据失败:', error)
+    } finally {
+        loading.value = false
     }
-    return labels[key] || key
 }
 
-// 营养成分单位
-const getNutritionUnit = (key) => {
-    return key === 'sodium' ? 'mg' : 'g'
+// 组件挂载时获取数据
+onMounted(() => {
+    fetchData()
+})
+
+// 切换分类
+const toggleCategory = (category) => {
+    filterCategory.value = filterCategory.value === category ? '' : category
+}
+
+// 卡片翻转状态
+const showImage = ref({})
+
+// 翻转卡片
+const toggleImage = (id) => {
+    showImage.value[id] = !showImage.value[id]
+}
+
+// 全局显示图片状态
+const showAllImages = ref(false)
+
+// 切换所有卡片的图片显示状态
+const toggleAllImages = () => {
+    showAllImages.value = !showAllImages.value
+    // 更新所有卡片的状态
+    filteredEffects.value.forEach(item => {
+        showImage.value[item.id] = showAllImages.value
+    })
 }
 </script>
 
 <style scoped>
-.filter-select {
-    @apply w-30;
+.card-container {
+    perspective: 1000px;
+    transform-style: preserve-3d;
 }
 
-.search-input {
-    @apply w-60;
+.card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.6s;
+    transform-style: preserve-3d;
 }
 
-.nutrition-info {
-    @apply bg-gray-50 rounded p-3 mt-2;
+.card-container.is-flipped .card-inner {
+    transform: rotateY(180deg);
 }
 
-.nutrition-item {
-    @apply flex justify-between items-center py-1 border-b border-dashed border-gray-200;
+.card-front,
+.card-back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
 }
 
-.nutrition-item:last-child {
-    @apply border-none;
+.card-front {
+    transform: rotateY(0deg);
 }
 
-.nutrition-item .label {
-    @apply text-gray-600 text-sm;
-}
-
-.nutrition-item .value {
-    @apply text-blue-500 font-medium text-sm;
-}
-
-@media (max-width: 768px) {
-    .header-actions {
-        @apply flex-col items-stretch;
-    }
-
-    .filter-select,
-    .search-input {
-        @apply w-full;
-    }
-}
-
-.daily-value {
-    @apply mt-2 text-gray-500 text-sm italic;
+.card-back {
+    transform: rotateY(180deg);
 }
 </style>
