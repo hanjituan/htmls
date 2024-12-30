@@ -1,11 +1,11 @@
 <template>
-    <el-container class="layout-container">
-        <el-aside width="200px" class="layout-aside">
+    <el-container class="h-screen">
+        <el-aside width="200px" class="bg-white border-r border-gray-200">
             <div class="logo">
                 <el-icon class="logo-icon" :size="32">
                     <Bowl />
                 </el-icon>
-                <h1>烘焙配料</h1>
+                <h1>配料大全</h1>
             </div>
             <el-menu :default-active="activeMenu" router>
                 <template v-for="item in menuItems" :key="item.route || item.label">
@@ -31,18 +31,18 @@
                 </template>
             </el-menu>
         </el-aside>
-        <el-container class="layout-content">
-            <el-header class="layout-header">
+        <el-container class="flex-1">
+            <el-header class="bg-white border-b border-gray-200 flex items-center justify-between px-5">
                 <el-breadcrumb>
                     <el-breadcrumb-item>首页</el-breadcrumb-item>
                     <el-breadcrumb-item>{{ currentMenu }}</el-breadcrumb-item>
                 </el-breadcrumb>
                 <div class="header-right">
                     <el-dropdown>
-                        <span class="user-info">
+                        <span class="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-gray-100">
                             <el-avatar :size="32"
                                 src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png" />
-                            <span class="username">管理员</span>
+                            <span class="text-gray-700">管理员</span>
                         </span>
                         <template #dropdown>
                             <el-dropdown-menu>
@@ -53,7 +53,7 @@
                     </el-dropdown>
                 </div>
             </el-header>
-            <el-main class="layout-main">
+            <el-main class="bg-gray-50 p-5">
                 <router-view></router-view>
             </el-main>
         </el-container>
@@ -132,85 +132,28 @@ const currentMenu = computed(() => {
 </script>
 
 <style scoped>
-.layout-container {
-    height: 100vh;
-}
-
-.layout-aside {
-    background-color: #fff;
-    border-right: 1px solid var(--el-border-color-light);
-}
-
 .logo {
-    height: 60px;
-    display: flex;
-    align-items: center;
-    padding: 0 20px;
-    border-bottom: 1px solid var(--el-border-color-light);
+    @apply h-15 flex items-center px-5 border-b border-gray-200;
 }
 
 .logo-icon {
-    color: var(--el-color-primary);
+    @apply text-blue-500;
 }
 
 .logo h1 {
-    margin: 0 0 0 12px;
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--el-text-color-primary);
-}
-
-.layout-header {
-    background-color: #fff;
-    border-bottom: 1px solid var(--el-border-color-light);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 20px;
-}
-
-.header-right {
-    display: flex;
-    align-items: center;
-    gap: 24px;
-}
-
-.user-info {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: var(--el-border-radius-base);
-    transition: background-color 0.3s;
-}
-
-.user-info:hover {
-    background-color: #f5f5f5;
-}
-
-.username {
-    font-size: 14px;
-    color: #333;
-}
-
-.layout-main {
-    background-color: var(--el-bg-color-page);
-    padding: 20px;
+    @apply m-0 ml-3 text-lg font-semibold text-gray-800;
 }
 
 .el-menu-item .el-icon,
 .el-sub-menu .el-icon {
-    margin-right: 8px;
-    width: 16px;
-    height: 16px;
+    @apply mr-2 w-4 h-4;
 }
 
 :deep(.el-menu-item.is-active) {
-    background-color: var(--el-menu-hover-bg-color);
+    @apply bg-blue-50;
 }
 
 :deep(.el-menu) {
-    border-right: none;
+    @apply border-none;
 }
 </style>

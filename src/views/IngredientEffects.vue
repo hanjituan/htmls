@@ -1,9 +1,9 @@
 <template>
-    <div class="ingredient-effects-container">
+    <div class="min-h-screen bg-gray-50">
         <div class="page-header">
-            <div class="header-left">
-                <h2>配料作用说明</h2>
-                <div class="header-actions">
+            <div class="flex flex-col gap-4">
+                <h2 class="text-2xl font-medium text-gray-800 m-0">配料作用说明</h2>
+                <div class="flex items-center gap-3">
                     <el-select v-model="filterCategory" placeholder="分类" clearable class="filter-select">
                         <el-option label="全部" value="" />
                         <el-option v-for="category in categories" :key="category.value" :label="category.label"
@@ -24,19 +24,19 @@
 
         <el-row :gutter="20">
             <el-col v-for="item in filteredEffects" :key="item.id" :xs="24" :sm="12" :md="8" :lg="6">
-                <el-card class="effect-card" shadow="hover">
+                <el-card class="mb-5 transform transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
                     <template #header>
-                        <div class="card-header">
-                            <span class="ingredient-name">{{ item.name }}</span>
+                        <div class="flex justify-between items-center">
+                            <span class="text-base font-medium">{{ item.name }}</span>
                             <el-tag :type="getCategoryTagType(item.category)" size="small">
                                 {{ categories.find(c => c.value === item.category)?.label }}
                             </el-tag>
                         </div>
                     </template>
-                    <div class="card-content">
-                        <div class="effect-section">
-                            <h4>主要作用</h4>
-                            <p>{{ item.mainEffect }}</p>
+                    <div class="flex flex-col gap-4">
+                        <div class="space-y-2">
+                            <h4 class="text-sm text-gray-600 font-medium">主要作用</h4>
+                            <p class="text-gray-600 leading-relaxed">{{ item.mainEffect }}</p>
                         </div>
                         <div class="effect-section">
                             <h4>使用建议</h4>
@@ -255,163 +255,46 @@ const getNutritionUnit = (key) => {
 </script>
 
 <style scoped>
-.ingredient-effects-container {
-    padding: 20px;
-    background-color: #f5f7fa;
-    min-height: calc(100vh - 60px);
-}
-
-.page-header {
-    margin-bottom: 20px;
-}
-
-.header-left {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.header-left h2 {
-    margin: 0;
-    font-size: 24px;
-    color: #1f2f3d;
-    font-weight: 500;
-}
-
-.header-actions {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-}
-
 .filter-select {
-    width: 120px;
+    @apply w-30;
 }
 
 .search-input {
-    width: 240px;
-}
-
-.effect-card {
-    margin-bottom: 20px;
-    transition: all 0.3s ease;
-}
-
-.effect-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, .1);
-}
-
-.card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.ingredient-name {
-    font-size: 16px;
-    font-weight: 500;
-}
-
-.card-content {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.effect-section {
-    margin-bottom: 12px;
-}
-
-.effect-section h4 {
-    margin: 0 0 8px 0;
-    color: #606266;
-    font-size: 14px;
-}
-
-.effect-section p {
-    margin: 0;
-    color: #606266;
-    line-height: 1.6;
-}
-
-.warning-list {
-    margin: 0;
-    padding-left: 20px;
-    color: #f56c6c;
-}
-
-.warning-list li {
-    margin-bottom: 4px;
-}
-
-.safety-note {
-    margin-top: 8px;
-    font-size: 13px;
-}
-
-.safety-note.safe {
-    color: #67c23a;
-}
-
-.safety-note.warning {
-    color: #e6a23c;
-}
-
-.safety-note.danger {
-    color: #f56c6c;
-}
-
-:deep(.el-card) {
-    border-radius: var(--border-radius-base);
+    @apply w-60;
 }
 
 .nutrition-info {
-    background-color: #f8f9fa;
-    border-radius: 4px;
-    padding: 12px;
-    margin-top: 8px;
+    @apply bg-gray-50 rounded p-3 mt-2;
 }
 
 .nutrition-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 4px 0;
-    border-bottom: 1px dashed #dcdfe6;
+    @apply flex justify-between items-center py-1 border-b border-dashed border-gray-200;
 }
 
 .nutrition-item:last-child {
-    border-bottom: none;
+    @apply border-none;
 }
 
 .nutrition-item .label {
-    color: #606266;
-    font-size: 13px;
+    @apply text-gray-600 text-sm;
 }
 
 .nutrition-item .value {
-    color: #409eff;
-    font-weight: 500;
-    font-size: 13px;
+    @apply text-blue-500 font-medium text-sm;
 }
 
 @media (max-width: 768px) {
     .header-actions {
-        flex-direction: column;
-        align-items: stretch;
+        @apply flex-col items-stretch;
     }
 
     .filter-select,
     .search-input {
-        width: 100%;
+        @apply w-full;
     }
 }
 
 .daily-value {
-    margin-top: 8px;
-    color: #909399;
-    font-size: 13px;
-    font-style: italic;
+    @apply mt-2 text-gray-500 text-sm italic;
 }
 </style>

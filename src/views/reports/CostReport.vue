@@ -1,9 +1,9 @@
 <template>
-    <div class="cost-report-container">
+    <div class="min-h-screen bg-gray-50 p-6">
         <div class="page-header">
-            <div class="header-left">
-                <h2>成本分析</h2>
-                <div class="header-actions">
+            <div class="space-y-4">
+                <h2 class="text-2xl font-medium text-gray-800 m-0">成本分析</h2>
+                <div class="flex items-center gap-3">
                     <el-radio-group v-model="timeRange" size="small">
                         <el-radio-button label="week">本周</el-radio-button>
                         <el-radio-button label="month">本月</el-radio-button>
@@ -12,7 +12,7 @@
                     </el-radio-group>
                 </div>
             </div>
-            <div class="header-right">
+            <div class="flex gap-3">
                 <el-button type="primary" plain @click="exportReport">
                     <el-icon>
                         <Download />
@@ -21,98 +21,120 @@
             </div>
         </div>
 
-        <el-row :gutter="20">
+        <el-row :gutter="20" class="mb-6">
             <el-col :span="6">
-                <el-card class="data-card" shadow="hover">
+                <el-card shadow="hover" class="transform transition-all duration-300 hover:-translate-y-1">
                     <template #header>
-                        <div class="card-header">
+                        <div class="flex justify-between items-center">
                             <span>总成本支出</span>
                             <el-tag type="danger">¥</el-tag>
                         </div>
                     </template>
-                    <div class="card-value">{{ totalCost.toLocaleString() }}</div>
-                    <div class="card-trend">
-                        <span :class="{ 'up': costChange > 0, 'down': costChange < 0 }">
-                            <el-icon>
-                                <CaretTop v-if="costChange > 0" />
-                                <CaretBottom v-else />
-                            </el-icon>
-                            {{ Math.abs(costChange) }}%
+                    <div class="text-center py-3">
+                        <span class="block text-3xl font-bold text-gray-800">
+                            {{ totalCost.toLocaleString() }}
                         </span>
-                        较上期
+                        <div class="mt-2 text-sm">
+                            <span :class="{ 'up': costChange > 0, 'down': costChange < 0 }">
+                                <el-icon>
+                                    <CaretTop v-if="costChange > 0" />
+                                    <CaretBottom v-else />
+                                </el-icon>
+                                {{ Math.abs(costChange) }}%
+                            </span>
+                            较上期
+                        </div>
                     </div>
                 </el-card>
             </el-col>
             <el-col :span="6">
-                <el-card class="data-card" shadow="hover">
+                <el-card shadow="hover" class="transform transition-all duration-300 hover:-translate-y-1">
                     <template #header>
-                        <div class="card-header">
+                        <div class="flex justify-between items-center">
                             <span>平均单品成本</span>
                             <el-tag type="warning">¥</el-tag>
                         </div>
                     </template>
-                    <div class="card-value">{{ averageCost.toFixed(2) }}</div>
-                    <div class="card-desc">每个配方平均成本</div>
+                    <div class="text-center py-3">
+                        <span class="block text-3xl font-bold text-gray-800">
+                            {{ averageCost.toFixed(2) }}
+                        </span>
+                        <div class="mt-2 text-sm">
+                            每个配方平均成本
+                        </div>
+                    </div>
                 </el-card>
             </el-col>
             <el-col :span="6">
-                <el-card class="data-card" shadow="hover">
+                <el-card shadow="hover" class="transform transition-all duration-300 hover:-translate-y-1">
                     <template #header>
-                        <div class="card-header">
+                        <div class="flex justify-between items-center">
                             <span>配方数量</span>
                             <el-tag type="info">个</el-tag>
                         </div>
                     </template>
-                    <div class="card-value">{{ recipeCount }}</div>
-                    <div class="card-desc">当前配方总数</div>
+                    <div class="text-center py-3">
+                        <span class="block text-3xl font-bold text-gray-800">
+                            {{ recipeCount }}
+                        </span>
+                        <div class="mt-2 text-sm">
+                            当前配方总数
+                        </div>
+                    </div>
                 </el-card>
             </el-col>
             <el-col :span="6">
-                <el-card class="data-card" shadow="hover">
+                <el-card shadow="hover" class="transform transition-all duration-300 hover:-translate-y-1">
                     <template #header>
-                        <div class="card-header">
+                        <div class="flex justify-between items-center">
                             <span>原料数量</span>
                             <el-tag type="info">种</el-tag>
                         </div>
                     </template>
-                    <div class="card-value">{{ ingredientCount }}</div>
-                    <div class="card-desc">使用中的原料数量</div>
+                    <div class="text-center py-3">
+                        <span class="block text-3xl font-bold text-gray-800">
+                            {{ ingredientCount }}
+                        </span>
+                        <div class="mt-2 text-sm">
+                            使用中的原料数量
+                        </div>
+                    </div>
                 </el-card>
             </el-col>
         </el-row>
 
-        <el-row :gutter="20" class="chart-row">
+        <el-row :gutter="20" class="mb-6">
             <el-col :span="12">
-                <el-card class="chart-card">
+                <el-card class="h-96">
                     <template #header>
-                        <div class="card-header">
+                        <div class="flex justify-between items-center">
                             <span>成本构成分析</span>
                         </div>
                     </template>
-                    <div class="chart-container">
+                    <div class="h-80">
                         <ECharts :options="compositionChartOptions" />
                     </div>
                 </el-card>
             </el-col>
             <el-col :span="12">
-                <el-card class="chart-card">
+                <el-card class="h-96">
                     <template #header>
-                        <div class="card-header">
+                        <div class="flex justify-between items-center">
                             <span>成本趋势分析</span>
                         </div>
                     </template>
-                    <div class="chart-container">
+                    <div class="h-80">
                         <ECharts :options="trendChartOptions" />
                     </div>
                 </el-card>
             </el-col>
         </el-row>
 
-        <el-card class="table-card">
+        <el-card class="overflow-hidden">
             <template #header>
-                <div class="card-header">
+                <div class="flex justify-between items-center">
                     <span>配方成本排名</span>
-                    <div class="header-actions">
+                    <div class="flex items-center gap-3">
                         <el-input v-model="searchText" placeholder="搜索配方" clearable class="search-input">
                             <template #prefix>
                                 <el-icon>
@@ -313,128 +335,29 @@ const trendChartOptions = ref({
 </script>
 
 <style scoped>
-.cost-report-container {
-    padding: 20px;
-    background-color: #f5f7fa;
-    min-height: calc(100vh - 60px);
+.up {
+    @apply text-red-500;
 }
 
-.page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-}
-
-.header-left {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-}
-
-.header-left h2 {
-    margin: 0;
-    font-size: 24px;
-    color: #1f2f3d;
-    font-weight: 500;
-}
-
-.header-right {
-    display: flex;
-    gap: 12px;
-}
-
-.data-card {
-    margin-bottom: 20px;
-}
-
-.card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.card-value {
-    font-size: 28px;
-    font-weight: bold;
-    color: #1f2f3d;
-    margin: 10px 0;
-}
-
-.card-trend {
-    font-size: 14px;
-    color: #909399;
-}
-
-.card-trend .up {
-    color: #f56c6c;
-}
-
-.card-trend .down {
-    color: #67c23a;
-}
-
-.card-desc {
-    font-size: 14px;
-    color: #909399;
-}
-
-.chart-row {
-    margin-bottom: 20px;
-}
-
-.chart-card {
-    height: 400px;
-}
-
-.chart-container {
-    height: 320px;
-}
-
-.chart-placeholder {
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: #fafafa;
-    color: #909399;
-    border: 1px dashed #dcdfe6;
+.down {
+    @apply text-green-500;
 }
 
 .search-input {
-    width: 240px;
+    @apply w-60;
 }
 
 .cost-value {
-    color: #f56c6c;
-    font-weight: 500;
+    @apply text-red-500 font-medium;
 }
 
-.cost-detail h4 {
-    margin: 0 0 16px 0;
-    color: #606266;
-}
+@media (max-width: 768px) {
+    .header-actions {
+        @apply flex-col items-stretch;
+    }
 
-.cost-summary {
-    margin-top: 16px;
-    text-align: right;
-    color: #f56c6c;
-    font-weight: bold;
-}
-
-.mx-1 {
-    margin: 0 4px;
-}
-
-:deep(.el-card) {
-    border-radius: var(--border-radius-base);
-}
-
-:deep(.el-progress-bar__outer) {
-    border-radius: var(--border-radius-base);
-}
-
-:deep(.el-progress-bar__inner) {
-    border-radius: var(--border-radius-base);
+    .search-input {
+        @apply w-full;
+    }
 }
 </style>

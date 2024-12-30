@@ -1,10 +1,10 @@
 <template>
-    <div class="stock-report-container">
+    <div class="min-h-screen bg-gray-50 p-6">
         <el-loading v-model="loading" />
-        <div class="page-header">
-            <div class="header-left">
-                <h2>库存报表</h2>
-                <div class="header-actions">
+        <div class="flex justify-between items-center mb-6">
+            <div class="space-y-4">
+                <h2 class="text-2xl font-medium text-gray-800 m-0">库存报表</h2>
+                <div class="flex items-center gap-3">
                     <el-radio-group v-model="timeRange" size="small">
                         <el-radio-button label="week">本周</el-radio-button>
                         <el-radio-button label="month">本月</el-radio-button>
@@ -13,7 +13,7 @@
                     </el-radio-group>
                 </div>
             </div>
-            <div class="header-right">
+            <div class="flex gap-3">
                 <el-button type="primary" plain @click="exportReport">
                     <el-icon>
                         <Download />
@@ -27,71 +27,81 @@
             </div>
         </div>
 
-        <el-row :gutter="20">
+        <el-row :gutter="20" class="mb-6">
             <el-col :span="6">
-                <el-card class="data-card" shadow="hover">
+                <el-card shadow="hover" class="transform transition-all duration-300 hover:-translate-y-1">
                     <template #header>
-                        <div class="card-header">
+                        <div class="flex justify-between items-center">
                             <span>库存总价值</span>
                             <el-tag type="success">¥</el-tag>
                         </div>
                     </template>
-                    <div class="card-value">{{ stats.totalValue.toLocaleString() }}</div>
-                    <div class="card-trend">
-                        <span :class="{ 'up': valueChange > 0, 'down': valueChange < 0 }">
-                            <el-icon>
-                                <CaretTop v-if="valueChange > 0" />
-                                <CaretBottom v-else />
-                            </el-icon>
-                            {{ Math.abs(valueChange) }}%
+                    <div class="text-center py-3">
+                        <span class="block text-3xl font-bold text-gray-800">
+                            {{ stats.totalValue.toLocaleString() }}
                         </span>
-                        较上期
+                        <div class="mt-2 text-sm">
+                            <span :class="{ 'up': valueChange > 0, 'down': valueChange < 0 }">
+                                <el-icon>
+                                    <CaretTop v-if="valueChange > 0" />
+                                    <CaretBottom v-else />
+                                </el-icon>
+                                {{ Math.abs(valueChange) }}%
+                            </span>
+                            较上期
+                        </div>
                     </div>
                 </el-card>
             </el-col>
             <el-col :span="6">
-                <el-card class="data-card" shadow="hover">
+                <el-card shadow="hover" class="transform transition-all duration-300 hover:-translate-y-1">
                     <template #header>
-                        <div class="card-header">
+                        <div class="flex justify-between items-center">
                             <span>库存预警</span>
                             <el-tag type="warning">个</el-tag>
                         </div>
                     </template>
-                    <div class="card-value">{{ stats.stockWarning }}</div>
-                    <div class="card-desc">库存不足原料数量</div>
+                    <div class="text-center py-3">
+                        {{ stats.stockWarning }}
+                    </div>
+                    <div class="text-sm text-gray-500">库存不足原料数量</div>
                 </el-card>
             </el-col>
             <el-col :span="6">
-                <el-card class="data-card" shadow="hover">
+                <el-card shadow="hover" class="transform transition-all duration-300 hover:-translate-y-1">
                     <template #header>
-                        <div class="card-header">
+                        <div class="flex justify-between items-center">
                             <span>入库次数</span>
                             <el-tag type="info">次</el-tag>
                         </div>
                     </template>
-                    <div class="card-value">{{ inStockCount }}</div>
-                    <div class="card-desc">本期入库操作次数</div>
+                    <div class="text-center py-3">
+                        {{ inStockCount }}
+                    </div>
+                    <div class="text-sm text-gray-500">本期入库操作次数</div>
                 </el-card>
             </el-col>
             <el-col :span="6">
-                <el-card class="data-card" shadow="hover">
+                <el-card shadow="hover" class="transform transition-all duration-300 hover:-translate-y-1">
                     <template #header>
-                        <div class="card-header">
+                        <div class="flex justify-between items-center">
                             <span>出库次数</span>
                             <el-tag type="info">次</el-tag>
                         </div>
                     </template>
-                    <div class="card-value">{{ outStockCount }}</div>
-                    <div class="card-desc">本期出库操作次数</div>
+                    <div class="text-center py-3">
+                        {{ outStockCount }}
+                    </div>
+                    <div class="text-sm text-gray-500">本期出库操作次数</div>
                 </el-card>
             </el-col>
         </el-row>
 
-        <el-row :gutter="20" class="chart-row">
+        <el-row :gutter="20" class="mb-6">
             <el-col :span="16">
-                <el-card class="chart-card">
+                <el-card class="h-96">
                     <template #header>
-                        <div class="card-header">
+                        <div class="flex justify-between items-center">
                             <span>库存变化趋势</span>
                             <el-radio-group v-model="chartType" size="small">
                                 <el-radio-button label="value">金额</el-radio-button>
@@ -99,30 +109,30 @@
                             </el-radio-group>
                         </div>
                     </template>
-                    <div class="chart-container">
+                    <div class="h-80">
                         <ECharts :options="trendChartOptions" />
                     </div>
                 </el-card>
             </el-col>
             <el-col :span="8">
-                <el-card class="chart-card">
+                <el-card class="h-96">
                     <template #header>
-                        <div class="card-header">
+                        <div class="flex justify-between items-center">
                             <span>库存分布</span>
                         </div>
                     </template>
-                    <div class="chart-container">
+                    <div class="h-80">
                         <ECharts :options="distributionChartOptions" />
                     </div>
                 </el-card>
             </el-col>
         </el-row>
 
-        <el-card class="table-card">
+        <el-card class="overflow-hidden">
             <template #header>
-                <div class="card-header">
+                <div class="flex justify-between items-center">
                     <span>库存明细</span>
-                    <div class="header-actions">
+                    <div class="flex items-center gap-3">
                         <el-select v-model="filterCategory" placeholder="分类" clearable class="filter-select">
                             <el-option label="全部" value="" />
                             <el-option v-for="category in categories" :key="category.value" :label="category.label"
@@ -167,7 +177,7 @@
                     </template>
                 </el-table-column>
             </el-table>
-            <div class="pagination-container">
+            <div class="flex justify-end p-4 bg-white border-t border-gray-200">
                 <el-pagination v-model:current-page="currentPage" v-model:page-size="pageSize"
                     :total="filteredStockList.length" :page-sizes="[10, 20, 50]"
                     layout="total, sizes, prev, pager, next" background />
@@ -403,117 +413,30 @@ const printReport = () => {
 </script>
 
 <style scoped>
-.stock-report-container {
-    padding: 20px;
-    background-color: #f5f7fa;
-    min-height: calc(100vh - 60px);
+.up {
+    @apply text-green-500;
 }
 
-.page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-}
-
-.header-left {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-}
-
-.header-left h2 {
-    margin: 0;
-    font-size: 24px;
-    color: #1f2f3d;
-    font-weight: 500;
-}
-
-.header-right {
-    display: flex;
-    gap: 12px;
-}
-
-.data-card {
-    margin-bottom: 20px;
-}
-
-.card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.card-value {
-    font-size: 28px;
-    font-weight: bold;
-    color: #1f2f3d;
-    margin: 10px 0;
-}
-
-.card-trend {
-    font-size: 14px;
-    color: #909399;
-}
-
-.card-trend .up {
-    color: #67c23a;
-}
-
-.card-trend .down {
-    color: #f56c6c;
-}
-
-.card-desc {
-    font-size: 14px;
-    color: #909399;
-}
-
-.chart-row {
-    margin-bottom: 20px;
-}
-
-.chart-card {
-    height: 400px;
-}
-
-.chart-container {
-    height: 320px;
-}
-
-.chart-placeholder {
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: #fafafa;
-    color: #909399;
-    border: 1px dashed #dcdfe6;
-}
-
-.search-input {
-    width: 240px;
-}
-
-:deep(.el-card) {
-    border-radius: var(--border-radius-base);
-}
-
-.header-actions {
-    display: flex;
-    gap: 12px;
-    align-items: center;
+.down {
+    @apply text-red-500;
 }
 
 .filter-select {
-    width: 120px;
+    @apply w-30;
 }
 
-.pagination-container {
-    padding: 16px;
-    display: flex;
-    justify-content: flex-end;
-    background-color: #fff;
-    border-top: 1px solid var(--el-border-color-lighter);
+.search-input {
+    @apply w-60;
+}
+
+@media (max-width: 768px) {
+    .header-actions {
+        @apply flex-col items-stretch;
+    }
+
+    .filter-select,
+    .search-input {
+        @apply w-full;
+    }
 }
 </style>
