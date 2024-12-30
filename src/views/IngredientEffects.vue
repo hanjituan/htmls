@@ -1,6 +1,6 @@
 <template>
     <div class="min-h-screen bg-gray-50">
-        <div class="page-header">
+        <div class="page-header mb-4">
             <div class="flex flex-col gap-4">
                 <h2 class="text-2xl font-medium text-gray-800 m-0">配料作用说明</h2>
                 <div class="flex items-center gap-3">
