@@ -1,18 +1,16 @@
 <template>
     <div class="min-h-screen bg-gray-50 p-6">
         <div class="page-header">
-            <div class="space-y-4">
-                <h2 class="text-2xl font-medium text-gray-800 m-0">成本分析</h2>
+            <div class="flex justify-between items-center mb-4">
                 <div class="flex items-center gap-3">
-                    <el-radio-group v-model="timeRange" size="small">
+                    <el-radio-group v-model="timeRange">
                         <el-radio-button label="week">本周</el-radio-button>
                         <el-radio-button label="month">本月</el-radio-button>
                         <el-radio-button label="quarter">本季度</el-radio-button>
                         <el-radio-button label="year">本年</el-radio-button>
                     </el-radio-group>
                 </div>
-            </div>
-            <div class="flex gap-3">
+
                 <el-button type="primary" plain @click="exportReport">
                     <el-icon>
                         <Download />

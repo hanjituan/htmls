@@ -38,6 +38,23 @@
                     <el-breadcrumb-item>{{ currentMenu }}</el-breadcrumb-item>
                 </el-breadcrumb>
                 <div class="header-right">
+                    <el-button-group class="mr-4">
+                        <el-button :type="theme === 'light' ? 'primary' : ''" @click="setTheme('light')">
+                            <el-icon>
+                                <Sunny />
+                            </el-icon>
+                        </el-button>
+                        <el-button :type="theme === 'dark' ? 'primary' : ''" @click="setTheme('dark')">
+                            <el-icon>
+                                <Moon />
+                            </el-icon>
+                        </el-button>
+                        <el-button :type="theme === 'system' ? 'primary' : ''" @click="setTheme('system')">
+                            <el-icon>
+                                <Monitor />
+                            </el-icon>
+                        </el-button>
+                    </el-button-group>
                     <el-dropdown>
                         <span class="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-gray-100">
                             <el-avatar :size="32"
@@ -46,8 +63,8 @@
                         </span>
                         <template #dropdown>
                             <el-dropdown-menu>
-                                <el-dropdown-item>个人设置</el-dropdown-item>
-                                <el-dropdown-item divided>退出登录</el-dropdown-item>
+                                <el-dropdown-item @click="router.push('/settings')">个人设置</el-dropdown-item>
+                                <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
                             </el-dropdown-menu>
                         </template>
                     </el-dropdown>
@@ -61,18 +78,66 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
     Bowl,
     Box,
     InfoFilled,
     TrendCharts,
     Document,
-    Plus
+    Plus,
+    Sunny,
+    Moon,
+    Monitor
 } from '@element-plus/icons-vue'
+import { ElMessageBox } from 'element-plus'
 
 const route = useRoute()
+const router = useRouter()
+
+// 主题设置
+const theme = ref(localStorage.getItem('theme') || 'system')
+
+// 设置主题
+const setTheme = (newTheme) => {
+    theme.value = newTheme
+    localStorage.setItem('theme', newTheme)
+
+    const root = document.documentElement
+    const isDark = newTheme === 'dark' ||
+        (newTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+
+    // 移除所有主题相关的类和属性
+    root.classList.remove('dark')
+    document.body.removeAttribute('el-theme')
+
+    // 应用新主题
+    if (isDark) {
+        root.classList.add('dark')
+        document.body.setAttribute('el-theme', 'dark')
+    } else {
+        document.body.setAttribute('el-theme', 'light')
+    }
+
+    // 触发重新渲染
+    document.body.style.display = 'none'
+    document.body.offsetHeight
+    document.body.style.display = ''
+}
+
+// 监听系统主题变化
+if (typeof window !== 'undefined') {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        if (theme.value === 'system') {
+            const newTheme = e.matches ? 'dark' : 'light'
+            setTheme(newTheme)
+        }
+    })
+}
+
+// 初始化主题
+setTheme(theme.value)
 
 // 菜单配置
 const menuItems = [
@@ -129,6 +194,18 @@ const currentMenu = computed(() => {
 
     return currentItem.label
 })
+
+// 处理退出登录
+const handleLogout = () => {
+    ElMessageBox.confirm('确定要退出登录吗？', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        // 这里可以添加清除登录状态的逻辑
+        router.push('/login')
+    }).catch(() => { })
+}
 </script>
 
 <style scoped>
@@ -155,5 +232,14 @@ const currentMenu = computed(() => {
 
 :deep(.el-menu) {
     @apply border-none;
+}
+
+/* 主题切换按钮样式 */
+.el-button-group .el-button {
+    @apply px-3;
+}
+
+.dark .el-button-group .el-button:not(.el-button--primary) {
+    @apply text-gray-400;
 }
 </style>

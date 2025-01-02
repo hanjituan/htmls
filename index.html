@@ -3,18 +3,27 @@
 
 <head>
     <meta charset="UTF-8">
+    <link rel="icon" href="/favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>配料表管理系统</title>
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        :root {
+            color-scheme: light dark;
         }
 
-        #app {
-            width: 100%;
-            height: 100vh;
+        .dark body {
+            background-color: #1a1a1a;
+            color: #e5e5e5;
+        }
+
+        /* Element Plus 暗色主题覆盖 */
+        body[el-theme="dark"] {
+            --el-bg-color: #1a1a1a;
+            --el-bg-color-overlay: #242424;
+            --el-text-color-primary: #e5e5e5;
+            --el-border-color: #4c4c4c;
+            --el-border-color-light: #363636;
+            --el-fill-color-blank: #1a1a1a;
         }
     </style>
 </head>

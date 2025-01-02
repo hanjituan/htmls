@@ -22,10 +22,6 @@
                     @click="toggleCategory(category.value)">
                     {{ category.label }}
                 </el-tag>
-                <el-tag v-if="filterCategory" type="info" effect="plain" class="cursor-pointer text-sm"
-                    @click="filterCategory = ''">
-                    清除筛选
-                </el-tag>
             </div>
         </div>
 

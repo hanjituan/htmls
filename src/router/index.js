@@ -36,6 +36,14 @@ const routes = [
         path: '/reports/cost',
         name: 'CostReport',
         component: CostReport
+    },
+    {
+        path: '/settings',
+        name: 'UserSettings',
+        component: () => import('@/views/UserSettings.vue'),
+        meta: {
+            title: '个人设置'
+        }
     }
 ]
 
