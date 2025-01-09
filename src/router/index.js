@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Dashboard from '../views/dashboard/Dashboard.vue'
-import Recipes from '../views/Recipes.vue'
+import Recipes from '../views/recipes/index.vue'
 import Ingredients from '../views/Ingredients.vue'
 import IngredientEffects from '../views/IngredientEffects.vue'
 import StockReport from '../views/reports/StockReport.vue'

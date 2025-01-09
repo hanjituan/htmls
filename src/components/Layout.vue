@@ -38,23 +38,44 @@
                     <el-breadcrumb-item>{{ currentMenu }}</el-breadcrumb-item>
                 </el-breadcrumb>
                 <div class="header-right">
-                    <el-button-group class="mr-4">
-                        <el-button :type="theme === 'light' ? 'primary' : ''" @click="setTheme('light')">
-                            <el-icon>
-                                <Sunny />
+                    <el-dropdown class="mr-4" @command="setTheme">
+                        <el-button>
+                            <el-icon class="mr-1">
+                                <template v-if="theme === 'light'">
+                                    <Sunny />
+                                </template>
+                                <template v-else-if="theme === 'dark'">
+                                    <Moon />
+                                </template>
+                                <template v-else>
+                                    <Monitor />
+                                </template>
                             </el-icon>
+                            {{ theme === 'light' ? '浅色' : theme === 'dark' ? '深色' : '跟随系统' }}
                         </el-button>
-                        <el-button :type="theme === 'dark' ? 'primary' : ''" @click="setTheme('dark')">
-                            <el-icon>
-                                <Moon />
-                            </el-icon>
-                        </el-button>
-                        <el-button :type="theme === 'system' ? 'primary' : ''" @click="setTheme('system')">
-                            <el-icon>
-                                <Monitor />
-                            </el-icon>
-                        </el-button>
-                    </el-button-group>
+                        <template #dropdown>
+                            <el-dropdown-menu>
+                                <el-dropdown-item command="light">
+                                    <div class="flex items-center">
+                                        <el-icon class="mr-2"><Sunny /></el-icon>
+                                        浅色
+                                    </div>
+                                </el-dropdown-item>
+                                <el-dropdown-item command="dark">
+                                    <div class="flex items-center">
+                                        <el-icon class="mr-2"><Moon /></el-icon>
+                                        深色
+                                    </div>
+                                </el-dropdown-item>
+                                <el-dropdown-item command="system">
+                                    <div class="flex items-center">
+                                        <el-icon class="mr-2"><Monitor /></el-icon>
+                                        跟随系统
+                                    </div>
+                                </el-dropdown-item>
+                            </el-dropdown-menu>
+                        </template>
+                    </el-dropdown>
                     <el-dropdown>
                         <span class="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-gray-100">
                             <el-avatar :size="32"
@@ -103,27 +124,7 @@ const theme = ref(localStorage.getItem('theme') || 'system')
 const setTheme = (newTheme) => {
     theme.value = newTheme
     localStorage.setItem('theme', newTheme)
-
-    const root = document.documentElement
-    const isDark = newTheme === 'dark' ||
-        (newTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-
-    // 移除所有主题相关的类和属性
-    root.classList.remove('dark')
-    document.body.removeAttribute('el-theme')
-
-    // 应用新主题
-    if (isDark) {
-        root.classList.add('dark')
-        document.body.setAttribute('el-theme', 'dark')
-    } else {
-        document.body.setAttribute('el-theme', 'light')
-    }
-
-    // 触发重新渲染
-    document.body.style.display = 'none'
-    document.body.offsetHeight
-    document.body.style.display = ''
+    applyTheme(newTheme)
 }
 
 // 监听系统主题变化
@@ -205,6 +206,29 @@ const handleLogout = () => {
         // 这里可以添加清除登录状态的逻辑
         router.push('/login')
     }).catch(() => { })
+}
+
+function applyTheme(newTheme) {
+    const root = document.documentElement
+    const isDark = newTheme === 'dark' ||
+        (newTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+
+    // 移除所有主题相关的类和属性
+    root.classList.remove('dark')
+    document.body.removeAttribute('el-theme')
+
+    // 应用新主题
+    if (isDark) {
+        root.classList.add('dark')
+        document.body.setAttribute('el-theme', 'dark')
+    } else {
+        document.body.setAttribute('el-theme', 'light')
+    }
+
+    // 触发重新渲染
+    document.body.style.display = 'none'
+    document.body.offsetHeight
+    document.body.style.display = ''
 }
 </script>
 
