@@ -5,6 +5,7 @@ import Ingredients from '../views/Ingredients.vue'
 import IngredientEffects from '../views/IngredientEffects.vue'
 import StockReport from '../views/reports/StockReport.vue'
 import CostReport from '../views/reports/CostReport.vue'
+import Echarts from '../views/echarts/index.vue'
 
 const routes = [
     {
@@ -36,6 +37,11 @@ const routes = [
         path: '/reports/cost',
         name: 'CostReport',
         component: CostReport
+    },
+    {
+        path: '/echarts',
+        name: 'echarts',
+        component: Echarts
     },
     {
         path: '/settings',
