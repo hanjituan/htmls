@@ -197,6 +197,20 @@ const getChartOption = (): echarts.EChartsOption => {
     };
 };
 
+const onChartClick = (params: any) => {
+    console.log("Chart clicked:", params);
+    // 获取点击的坐标
+    const pointInPixel = [params.offsetX, params.offsetY];
+    // 将像素坐标转换为数据坐标
+    const pointInData = myChart.convertFromPixel({ seriesIndex: 0 }, pointInPixel);
+    console.log("Clicked position in data:", pointInData);
+
+    // 这里可以添加你的业务逻辑
+    // 例如：添加新的数据点
+    // data.value.push([pointInData[0], pointInData[1]]);
+    // updateChartData();
+};
+
 // 初始化图表
 onMounted(() => {
     myChart = echarts.init(chartRef.value as HTMLElement);
@@ -237,6 +251,8 @@ onMounted(() => {
     // 添加事件监听
     window.addEventListener("resize", updatePosition);
     myChart.on("dataZoom", updatePosition);
+    // 添加点击事件监听
+    myChart.getZr().on("click", onChartClick);
 });
 </script>
 <style lang="less" scoped></style>
