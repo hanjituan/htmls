@@ -1,6 +1,6 @@
 <template>
     <div>
-        <h1 class="mb-4">vue3 script setup echarts</h1>
+        <h1 class="mb-4">echarts demo</h1>
         <div
             v-for="(time, index) in timeRange"
             :ref="`chartRef${index}`"
