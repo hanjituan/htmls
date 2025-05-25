@@ -20,7 +20,9 @@ const props = defineProps({
     },
 });
 
+const activeIndex = ref(0);
 const symbolSize = 20;
+const yValue = 2; // y轴固定值
 // 为每个图表创建独立的数据存储
 const chartDataMap = new Map();
 
@@ -32,15 +34,16 @@ const endIcon = "https://img.icons8.com/material-outlined/24/000000/right2.png";
 const generateInitialPoints = (x1: number, x2: number) => {
     const points = [];
     for (let x = x1; x <= x2; x += 2) {
-        points.push([x, 2]);
+        points.push([x, yValue]);
     }
     return points;
 };
 
 // 事件处理函数
 const updatePosition = (chart: echarts.EChartsType) => {
+    const { dragPoints, symbolSizes } = getChartById(chart.id);
     chart.setOption({
-        graphic: chartDataMap.get(chart.id).map((item) => ({
+        graphic: dragPoints.map((item) => ({
             position: chart.convertToPixel("grid", item),
         })),
     });
@@ -60,22 +63,46 @@ const hideTooltip = (chart: echarts.EChartsType) => {
     });
 };
 
-const updateChartData = (chart: echarts.EChartsType) => {
-    const chartData = chartDataMap.get(chart.id);
-    const x1 = Math.min(chartData[0][0], chartData[1][0]);
-    const x2 = Math.max(chartData[0][0], chartData[1][0]);
+// 点击后更新位置
+const updatePostion = (position, chartData) => {
+    // 获取点击位置对应的x坐标, 比较两个点 x 坐标, 差值较小的一个座位替换点
+    if (Array.isArray(position)) {
+        const x = position[0];
+        const point0X = chartData[0][0];
+        const point1X = chartData[1][0];
+        const isPoint0First = Math.abs(x - point0X) < Math.abs(x - point1X);
+        const dataIndex = isPoint0First ? 0 : 1;
+        chartData[dataIndex] = [x, 0];
+    }
+};
+
+const updateChartData = (chart: echarts.EChartsType, clickEvent = { params: {}, position: {} }) => {
+    const { dragPoints, symbolSizes } = getChartById(chart.id);
+    const { position } = clickEvent;
+    // console.log("当前激活的图表数据: ", dragPoints);
+    // console.log("当前激活的图表索引:", activeIndex.value);
+    // console.log("点击的位置: ", position);
+    updatePostion(position, dragPoints);
+
+    const x1 = Math.min(dragPoints[0][0], dragPoints[1][0]);
+    const x2 = Math.max(dragPoints[0][0], dragPoints[1][0]);
     const newSeriesData = generateInitialPoints(x1, x2);
 
-    const point0X = chartData[0][0];
-    const point1X = chartData[1][0];
+    const point0X = dragPoints[0][0];
+    const point1X = dragPoints[1][0];
     const isPoint0First = point0X < point1X;
-
     chart.setOption({
         series: [
+            // 拖拽点
             {
                 id: "a",
-                data: chartData,
+                type: "line",
+                smooth: true,
+                symbolSize: symbolSize, // TODO: 拖拽点的 icon 大小
+                data: dragPoints,
+                areaStyle: {},
             },
+            // 折线图 (阴影部分)
             {
                 id: "b",
                 data: newSeriesData,
@@ -90,7 +117,7 @@ const updateChartData = (chart: echarts.EChartsType) => {
     });
 
     chart.setOption({
-        graphic: chartData.map((item, idx) => ({
+        graphic: dragPoints.map((item, idx) => ({
             position: chart.convertToPixel("grid", item),
             type: "image",
             style: {
@@ -107,84 +134,53 @@ const updateChartData = (chart: echarts.EChartsType) => {
 };
 
 const onDragEnd = (chart: echarts.EChartsType, dataIndex: number, pos: number[]) => {
-    const chartData = chartDataMap.get(chart.id);
+    const { dragPoints, symbolSizes } = getChartById(chart.id);
     const newPos = chart.convertFromPixel("grid", pos);
     newPos[0] = Math.round(Math.min(Math.max(newPos[0], 0), 24));
-    newPos[1] = chartData[dataIndex][1];
-    chartData[dataIndex] = newPos;
+    newPos[1] = dragPoints[dataIndex][1];
+    dragPoints[dataIndex] = newPos;
     updateChartData(chart);
 };
 
 const onPointDragging = (chart: echarts.EChartsType, dataIndex: number, pos: number[]) => {
-    const chartData = chartDataMap.get(chart.id);
+    const { dragPoints, symbolSizes } = getChartById(chart.id);
     const newPos = chart.convertFromPixel("grid", pos);
     newPos[0] = Math.min(Math.max(newPos[0], 0), 24);
-    newPos[1] = chartData[dataIndex][1];
-    chartData[dataIndex] = newPos;
+    newPos[1] = dragPoints[dataIndex][1];
+    dragPoints[dataIndex] = newPos;
     updateChartData(chart);
 };
 
-// 图表配置
-const getChartOption = (chart: echarts.EChartsType, index: number): echarts.EChartsOption => {
-    // 只给第一个图表设置数据
-    if (index === 0 && !chartDataMap.has(chart.id)) {
-        chartDataMap.set(chart.id, [
-            [0, 0],
-            [12, 0],
-        ]);
-    }
-
-    const chartData = chartDataMap.get(chart.id) || [];
-    const x1 = index === 0 ? Math.min(chartData[0][0], chartData[1][0]) : 0;
-    const x2 = index === 0 ? Math.max(chartData[0][0], chartData[1][0]) : 24;
-    const initialPoints = generateInitialPoints(x1, x2);
-
-    let dynamicSeries: echarts.SeriesOption[] = [];
-    if (index === 0) {
-        dynamicSeries = [
-            {
-                id: "b",
-                type: "line",
-                data: initialPoints,
-                areaStyle: { color: "#d3d3d3", origin: "start" },
-                symbolSize: 0,
-            },
-        ];
-    }
-
-    const seriesData: echarts.SeriesOption[] = [
-        // 只在第一个图表显示阴影区域
-        ...dynamicSeries,
-        {
-            id: "c",
-            type: "bar",
-            data: [
-                [2, 1],
-                [6, 1],
-                [10, 1],
-                [14, 1],
-                [18, 1],
-                [20, 1],
-                [22, 1],
-            ],
-            barWidth: 20,
-            itemStyle: { color: "#91cc75" },
-        },
+// 设置多组 echarts 实例, 初始化的数据
+const setChartInstance = (chart: echarts.EChartsType, index: number) => {
+    // 拖拽点起始位置
+    let dragPoints = [
+        [0, 0],
+        [0, 0],
     ];
+    // 第一个点, 第二个点
+    let symbolSizes = [0, 0];
 
-    let dynamicSeries1: echarts.SeriesOption[] = [];
     if (index === 0) {
-        dynamicSeries1 = [
-            {
-                id: "a",
-                type: "line",
-                smooth: true,
-                symbolSize: symbolSize,
-                data: chartData,
-                areaStyle: {},
-            },
+        dragPoints = [
+            [4, 0],
+            [12, 0],
         ];
+        symbolSizes = [symbolSize, symbolSize];
     }
+    if (!chartDataMap.has(chart.id)) {
+        chartDataMap.set(chart.id, { dragPoints, symbolSizes });
+    }
+};
+
+// 初始图表配置
+const getChartOption = (chart: echarts.EChartsType, index: number, size: number): echarts.EChartsOption => {
+    setChartInstance(chart, index);
+    const { dragPoints, symbolSize } = getChartById(chart.id);
+    const x1 = Math.min(dragPoints[0][0], dragPoints[1][0]);
+    const x2 = Math.max(dragPoints[0][0], dragPoints[1][0]);
+    const initialPoints = generateInitialPoints(x1, x2);
+    // console.log("初始图表数据: ", initialPoints);
 
     return {
         tooltip: {
@@ -211,16 +207,49 @@ const getChartOption = (chart: echarts.EChartsType, index: number): echarts.ECha
             splitLine: { show: false },
         },
         series: [
-            // 只在第一个图表显示折线
-            ...dynamicSeries1,
-            ...seriesData,
+            {
+                id: "a",
+                type: "line",
+                smooth: true,
+                symbolSize: size, // TODO: 拖拽点的 icon 大小
+                data: dragPoints,
+                areaStyle: {},
+            },
+            {
+                id: "b",
+                type: "line",
+                data: initialPoints,
+                areaStyle: { color: "#d3d3d3", origin: "start" },
+                symbolSize: 0,
+            },
+            {
+                id: "c",
+                type: "bar",
+                data: [
+                    [2, 1],
+                    [6, 1],
+                    [10, 1],
+                    [14, 1],
+                    [18, 1],
+                    [20, 1],
+                    [22, 1],
+                ],
+                barWidth: 20,
+                itemStyle: { color: "#91cc75" },
+            },
         ],
     };
 };
 
 const onChartClick = (chart: echarts.EChartsType, index: number) => (params: any) => {
+    /**
+     * 如果点击的是第一组, 则不处理,
+     * 点击的是第二组, 则将第一组第二个拖拽点设置位置设置到最后(24), 且拖拽点大小设置为 0
+     * 点击的是第三组, 重复第二点的逻辑, 且将第二组第一个拖拽点位置设置为开始 0 ,第二个拖拽点设置位置设置到最后(24), 两个且拖拽点大小设置为 0
+     */
+    activeIndex.value = index;
     console.log(index);
-    console.log("Chart clicked:", params);
+    // console.log("Chart clicked:", params);
     // 获取点击的坐标
     const pointInPixel = [params.offsetX, params.offsetY];
     // 将像素坐标转换为数据坐标
@@ -229,48 +258,66 @@ const onChartClick = (chart: echarts.EChartsType, index: number) => (params: any
     // 这里可以添加你的业务逻辑
     // 例如：添加新的数据点
     // data.value.push([pointInData[0], pointInData[1]]);
-    // updateChartData(chart); // 更新图表
+    updateChartData(chart, { params, position: pointInData }); // 更新图表
 };
 
 const setSingleChartOption = (chart: echarts.ECharts, index: number) => {
-    chart.setOption(getChartOption(chart, index));
-
-    // 只为第一个图表设置拖拽点
+    let size = 0;
     if (index === 0) {
-        setTimeout(() => {
-            const chartData = chartDataMap.get(chart.id);
-            chart.setOption({
-                graphic: chartData.map((item, dataIndex) => ({
-                    type: "image",
-                    position: chart.convertToPixel("grid", item),
-                    style: {
-                        image: dataIndex === 0 ? startIcon : endIcon,
-                        width: symbolSize,
-                        height: symbolSize,
-                        x: -symbolSize / 2,
-                        y: -symbolSize / 2,
-                    },
-                    invisible: false,
-                    draggable: "horizontal",
-                    ondrag: function (dx, dy) {
-                        onPointDragging(chart, dataIndex, [this.x, this.y]);
-                    },
-                    ondragend: function () {
-                        onDragEnd(chart, dataIndex, [this.x, this.y]);
-                    },
-                    onmousemove: function () {
-                        showTooltip(chart, dataIndex);
-                    },
-                    onmouseout: function () {
-                        hideTooltip(chart);
-                    },
-                    z: 100,
-                })),
-            });
-        }, 0);
-        // 只为第一个图表添加事件监听
-        window.addEventListener("resize", () => updatePosition(chart));
-        chart.getZr().on("click", onChartClick(chart, index));
+        size = symbolSize;
+    }
+    const option = getChartOption(chart, index, size);
+    chart.setOption(option);
+    window.addEventListener("resize", () => updatePosition(chart));
+    chart.getZr().on("click", onChartClick(chart, index));
+
+    setTimeout(() => {
+        setDragPointer(chart, index);
+    }, 0);
+};
+
+const getChartById = (id) => {
+    const chartData = chartDataMap.get(id);
+    return chartData;
+};
+
+// 设置拖拽点, 以及拖拽事件
+const setDragPointer = (chart: echarts.ECharts, index: number) => {
+    const { dragPoints, symbolSizes: size } = getChartById(chart.id);
+    // console.log(dragPoints);
+
+    try {
+        // if (index != 0) return;
+        chart.setOption({
+            graphic: dragPoints.map((item, dataIndex) => ({
+                type: "image",
+                position: chart.convertToPixel("grid", item),
+                style: {
+                    image: dataIndex === 0 ? startIcon : endIcon,
+                    width: size[dataIndex],
+                    height: size[dataIndex],
+                    x: -size[dataIndex] / 2,
+                    y: -size[dataIndex] / 2,
+                },
+                invisible: false,
+                draggable: "horizontal",
+                ondrag: function (dx, dy) {
+                    onPointDragging(chart, dataIndex, [this.x, this.y]);
+                },
+                ondragend: function () {
+                    onDragEnd(chart, dataIndex, [this.x, this.y]);
+                },
+                onmousemove: function () {
+                    showTooltip(chart, dataIndex);
+                },
+                onmouseout: function () {
+                    hideTooltip(chart);
+                },
+                z: 100,
+            })),
+        });
+    } catch (error) {
+        console.log(error);
     }
 };
 
