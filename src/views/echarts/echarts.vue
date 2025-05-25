@@ -1,6 +1,5 @@
 <template>
     <div>
-        <h1 class="mb-4">echarts demo</h1>
         <div
             v-for="(time, index) in timeRange"
             :ref="`chartRef${index}`"
@@ -19,7 +18,7 @@ const props = defineProps({
         default: [],
     },
 });
-
+const chartList: any = ref([]);
 const activeIndex = ref(0);
 const symbolSize = 20;
 const yValue = 2; // y轴固定值
@@ -29,6 +28,11 @@ const chartDataMap = new Map();
 // 图标资源
 const startIcon = "https://img.icons8.com/material-outlined/24/000000/left2.png";
 const endIcon = "https://img.icons8.com/material-outlined/24/000000/right2.png";
+
+const getChartById = (id) => {
+    const chartData = chartDataMap.get(id);
+    return chartData;
+};
 
 // 工具函数
 const generateInitialPoints = (x1: number, x2: number) => {
@@ -64,7 +68,7 @@ const hideTooltip = (chart: echarts.EChartsType) => {
 };
 
 // 点击后更新位置
-const updatePostion = (position, chartData) => {
+const updatePostion = (position, chartData, pointNumber) => {
     // 获取点击位置对应的x坐标, 比较两个点 x 坐标, 差值较小的一个座位替换点
     if (Array.isArray(position)) {
         const x = position[0];
@@ -77,12 +81,9 @@ const updatePostion = (position, chartData) => {
 };
 
 const updateChartData = (chart: echarts.EChartsType, clickEvent = { params: {}, position: {} }) => {
-    const { dragPoints, symbolSizes } = getChartById(chart.id);
+    const { dragPoints, symbolSizes, pointNumber } = getChartById(chart.id);
     const { position } = clickEvent;
-    // console.log("当前激活的图表数据: ", dragPoints);
-    // console.log("当前激活的图表索引:", activeIndex.value);
-    // console.log("点击的位置: ", position);
-    updatePostion(position, dragPoints);
+    updatePostion(position, dragPoints, pointNumber);
 
     const x1 = Math.min(dragPoints[0][0], dragPoints[1][0]);
     const x2 = Math.max(dragPoints[0][0], dragPoints[1][0]);
@@ -98,7 +99,9 @@ const updateChartData = (chart: echarts.EChartsType, clickEvent = { params: {}, 
                 id: "a",
                 type: "line",
                 smooth: true,
-                symbolSize: symbolSize, // TODO: 拖拽点的 icon 大小
+                symbolSize: (value, params) => {
+                    return symbolSizes[params.dataIndex];
+                }, // TODO: 拖拽点的 icon 大小
                 data: dragPoints,
                 areaStyle: {},
             },
@@ -122,10 +125,10 @@ const updateChartData = (chart: echarts.EChartsType, clickEvent = { params: {}, 
             type: "image",
             style: {
                 image: (isPoint0First ? idx === 0 : idx === 1) ? startIcon : endIcon,
-                width: symbolSize,
-                height: symbolSize,
-                x: -symbolSize / 2,
-                y: -symbolSize / 2,
+                width: symbolSizes[idx],
+                height: symbolSizes[idx],
+                x: -symbolSizes[idx] / 2,
+                y: -symbolSizes[idx] / 2,
             },
             invisible: false,
             z: 100,
@@ -160,27 +163,27 @@ const setChartInstance = (chart: echarts.EChartsType, index: number) => {
     ];
     // 第一个点, 第二个点
     let symbolSizes = [0, 0];
+    let pointNumber = 0;
 
     if (index === 0) {
         dragPoints = [
-            [4, 0],
+            [0, 0],
             [12, 0],
         ];
         symbolSizes = [symbolSize, symbolSize];
+        pointNumber = 2;
     }
     if (!chartDataMap.has(chart.id)) {
-        chartDataMap.set(chart.id, { dragPoints, symbolSizes });
+        chartDataMap.set(chart.id, { dragPoints, symbolSizes, pointNumber });
     }
 };
 
 // 初始图表配置
-const getChartOption = (chart: echarts.EChartsType, index: number, size: number): echarts.EChartsOption => {
-    setChartInstance(chart, index);
-    const { dragPoints, symbolSize } = getChartById(chart.id);
+const getChartOption = (chart: echarts.EChartsType, index: number): echarts.EChartsOption => {
+    const { dragPoints, symbolSizes } = getChartById(chart.id);
     const x1 = Math.min(dragPoints[0][0], dragPoints[1][0]);
     const x2 = Math.max(dragPoints[0][0], dragPoints[1][0]);
     const initialPoints = generateInitialPoints(x1, x2);
-    // console.log("初始图表数据: ", initialPoints);
 
     return {
         tooltip: {
@@ -211,7 +214,9 @@ const getChartOption = (chart: echarts.EChartsType, index: number, size: number)
                 id: "a",
                 type: "line",
                 smooth: true,
-                symbolSize: size, // TODO: 拖拽点的 icon 大小
+                symbolSize: (value, params) => {
+                    return symbolSizes[params.dataIndex];
+                },
                 data: dragPoints,
                 areaStyle: {},
             },
@@ -242,31 +247,43 @@ const getChartOption = (chart: echarts.EChartsType, index: number, size: number)
 };
 
 const onChartClick = (chart: echarts.EChartsType, index: number) => (params: any) => {
+    activeIndex.value = index;
+    // 获取点击的坐标
+    const pointInPixel = [params.offsetX, params.offsetY];
+    // 将像素坐标转换为数据坐标
+    const pointInData = chart.convertFromPixel({ seriesIndex: 0 }, pointInPixel);
+    // console.log("Clicked position in data:", pointInData);
+
     /**
      * 如果点击的是第一组, 则不处理,
      * 点击的是第二组, 则将第一组第二个拖拽点设置位置设置到最后(24), 且拖拽点大小设置为 0
      * 点击的是第三组, 重复第二点的逻辑, 且将第二组第一个拖拽点位置设置为开始 0 ,第二个拖拽点设置位置设置到最后(24), 两个且拖拽点大小设置为 0
      */
-    activeIndex.value = index;
-    console.log(index);
-    // console.log("Chart clicked:", params);
-    // 获取点击的坐标
-    const pointInPixel = [params.offsetX, params.offsetY];
-    // 将像素坐标转换为数据坐标
-    const pointInData = chart.convertFromPixel({ seriesIndex: 0 }, pointInPixel);
-    console.log("Clicked position in data:", pointInData);
-    // 这里可以添加你的业务逻辑
-    // 例如：添加新的数据点
-    // data.value.push([pointInData[0], pointInData[1]]);
+    const currentData = getChartById(chart.id);
+
+    if (index === 1) {
+        const chart0 = chartList.value[index - 1];
+        const chartData1 = getChartById(chart0.id);
+        chartData1.dragPoints[1] = [24, 0]; // 第一组第二个拖拽点设置到最后(24)
+        chartData1.symbolSizes[1] = 0; // 拖拽点大小设置为 0
+        currentData.symbolSizes = [0, 20]; // 第二组第一个拖拽点设置为开始(0)
+
+        updateChartData(chart0, { params, position: [24, 0] }); // 更新图表
+    } else if (index === 2) {
+        currentData.dragPoints[1] = [24, 0]; // 第一组第二个拖拽点设置到最后(24)
+        currentData.symbolSizes[1] = 0; // 拖拽点大小设置为 0
+        currentData.dragPoints[0] = [0, 0]; // 第二组第一个拖拽点设置为开始(0)
+        currentData.dragPoints[1] = [24, 0]; // 第二组第二个拖拽点设置到最后(24)
+        currentData.symbolSizes[0] = 0; // 两个拖拽点大小设置为 0
+        currentData.symbolSizes[1] = 0;
+    }
+
     updateChartData(chart, { params, position: pointInData }); // 更新图表
 };
 
 const setSingleChartOption = (chart: echarts.ECharts, index: number) => {
-    let size = 0;
-    if (index === 0) {
-        size = symbolSize;
-    }
-    const option = getChartOption(chart, index, size);
+    setChartInstance(chart, index);
+    const option = getChartOption(chart, index);
     chart.setOption(option);
     window.addEventListener("resize", () => updatePosition(chart));
     chart.getZr().on("click", onChartClick(chart, index));
@@ -274,11 +291,6 @@ const setSingleChartOption = (chart: echarts.ECharts, index: number) => {
     setTimeout(() => {
         setDragPointer(chart, index);
     }, 0);
-};
-
-const getChartById = (id) => {
-    const chartData = chartDataMap.get(id);
-    return chartData;
 };
 
 // 设置拖拽点, 以及拖拽事件
@@ -321,11 +333,33 @@ const setDragPointer = (chart: echarts.ECharts, index: number) => {
     }
 };
 
+// 直接将额外数据挂载 echarts 实例上
+// const setExtraData = (chart: echarts.ECharts, index: number) => {
+//     // 第一组默认拖拽点是 [0, 0] 和 [12, 0], 其他都是 [0,0] 和 [0, 0]
+//     const dragPoints =
+//         index === 0
+//             ? [
+//                   [0, 0],
+//                   [12, 0],
+//               ]
+//             : [
+//                   [0, 0],
+//                   [0, 0],
+//               ];
+//     const symbolSizes = index === 0 ? [symbolSize, symbolSize] : [0, 0];
+//     chart.extraData = {
+//         dragPoints,
+//         symbolSizes,
+//     };
+// };
+
 // 初始化图表
 onMounted(() => {
     props.timeRange.map((item, index) => {
         const chart = echarts.init(document.getElementById("chartRef" + index) as HTMLElement);
+        // setExtraData(chart, index);
         setSingleChartOption(chart, index);
+        chartList.value.push(chart);
     });
 });
 </script>
