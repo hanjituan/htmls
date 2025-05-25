@@ -12,7 +12,6 @@
 <script lang="ts" setup>
 import * as echarts from "echarts";
 import { onMounted, ref } from "vue";
-// import dayjs from "dayjs";
 
 const props = defineProps({
     timeRange: {
@@ -21,7 +20,6 @@ const props = defineProps({
     },
 });
 
-const chartList = ref<any>([]);
 const symbolSize = 20;
 // 为每个图表创建独立的数据存储
 const chartDataMap = new Map();
@@ -127,20 +125,36 @@ const onPointDragging = (chart: echarts.EChartsType, dataIndex: number, pos: num
 };
 
 // 图表配置
-const getChartOption = (chart: echarts.EChartsType): echarts.EChartsOption => {
-    const chartData = chartDataMap.get(chart.id);
-    const x1 = Math.min(chartData[0][0], chartData[1][0]);
-    const x2 = Math.max(chartData[0][0], chartData[1][0]);
+const getChartOption = (chart: echarts.EChartsType, index: number): echarts.EChartsOption => {
+    // 只给第一个图表设置数据
+    if (index === 0 && !chartDataMap.has(chart.id)) {
+        chartDataMap.set(chart.id, [
+            [0, 0],
+            [12, 0],
+        ]);
+    }
+
+    const chartData = chartDataMap.get(chart.id) || [];
+    const x1 = index === 0 ? Math.min(chartData[0][0], chartData[1][0]) : 0;
+    const x2 = index === 0 ? Math.max(chartData[0][0], chartData[1][0]) : 24;
     const initialPoints = generateInitialPoints(x1, x2);
 
+    let dynamicSeries: echarts.SeriesOption[] = [];
+    if (index === 0) {
+        dynamicSeries = [
+            {
+                id: "b",
+                type: "line",
+                data: initialPoints,
+                areaStyle: { color: "#d3d3d3", origin: "start" },
+                symbolSize: 0,
+            },
+        ];
+    }
+
     const seriesData: echarts.SeriesOption[] = [
-        {
-            id: "b",
-            type: "line",
-            data: initialPoints,
-            areaStyle: { color: "#d3d3d3", origin: "start" },
-            symbolSize: 0,
-        },
+        // 只在第一个图表显示阴影区域
+        ...dynamicSeries,
         {
             id: "c",
             type: "bar",
@@ -157,6 +171,20 @@ const getChartOption = (chart: echarts.EChartsType): echarts.EChartsOption => {
             itemStyle: { color: "#91cc75" },
         },
     ];
+
+    let dynamicSeries1: echarts.SeriesOption[] = [];
+    if (index === 0) {
+        dynamicSeries1 = [
+            {
+                id: "a",
+                type: "line",
+                smooth: true,
+                symbolSize: symbolSize,
+                data: chartData,
+                areaStyle: {},
+            },
+        ];
+    }
 
     return {
         tooltip: {
@@ -183,14 +211,8 @@ const getChartOption = (chart: echarts.EChartsType): echarts.EChartsOption => {
             splitLine: { show: false },
         },
         series: [
-            {
-                id: "a",
-                type: "line",
-                smooth: true,
-                symbolSize: symbolSize,
-                data: chartData,
-                areaStyle: {},
-            },
+            // 只在第一个图表显示折线
+            ...dynamicSeries1,
             ...seriesData,
         ],
     };
@@ -211,52 +233,45 @@ const onChartClick = (chart: echarts.EChartsType, index: number) => (params: any
 };
 
 const setSingleChartOption = (chart: echarts.ECharts, index: number) => {
-    // 为每个图表设置初始数据
-    if (!chartDataMap.has(chart.id)) {
-        chartDataMap.set(chart.id, [
-            [10, 0],
-            [20, 0],
-        ]);
-    }
+    chart.setOption(getChartOption(chart, index));
 
-    chart.setOption(getChartOption(chart));
-    setTimeout(() => {
-        const chartData = chartDataMap.get(chart.id);
-        chart.setOption({
-            graphic: chartData.map((item, dataIndex) => ({
-                type: "image",
-                position: chart.convertToPixel("grid", item),
-                style: {
-                    image: dataIndex === 0 ? startIcon : endIcon,
-                    width: symbolSize,
-                    height: symbolSize,
-                    x: -symbolSize / 2,
-                    y: -symbolSize / 2,
-                },
-                invisible: false,
-                draggable: "horizontal",
-                ondrag: function (dx, dy) {
-                    onPointDragging(chart, dataIndex, [this.x, this.y]);
-                },
-                ondragend: function () {
-                    onDragEnd(chart, dataIndex, [this.x, this.y]);
-                },
-                onmousemove: function () {
-                    showTooltip(chart, dataIndex);
-                },
-                onmouseout: function () {
-                    hideTooltip(chart);
-                },
-                z: 100,
-            })),
-        });
-    }, 0);
-    // 添加事件监听
-    window.addEventListener("resize", () => updatePosition(chart));
-    // 监听dataZoom事件
-    // chart.on("dataZoom", () => updatePosition(chart));
-    // 添加点击事件监听
-    chart.getZr().on("click", onChartClick(chart, index));
+    // 只为第一个图表设置拖拽点
+    if (index === 0) {
+        setTimeout(() => {
+            const chartData = chartDataMap.get(chart.id);
+            chart.setOption({
+                graphic: chartData.map((item, dataIndex) => ({
+                    type: "image",
+                    position: chart.convertToPixel("grid", item),
+                    style: {
+                        image: dataIndex === 0 ? startIcon : endIcon,
+                        width: symbolSize,
+                        height: symbolSize,
+                        x: -symbolSize / 2,
+                        y: -symbolSize / 2,
+                    },
+                    invisible: false,
+                    draggable: "horizontal",
+                    ondrag: function (dx, dy) {
+                        onPointDragging(chart, dataIndex, [this.x, this.y]);
+                    },
+                    ondragend: function () {
+                        onDragEnd(chart, dataIndex, [this.x, this.y]);
+                    },
+                    onmousemove: function () {
+                        showTooltip(chart, dataIndex);
+                    },
+                    onmouseout: function () {
+                        hideTooltip(chart);
+                    },
+                    z: 100,
+                })),
+            });
+        }, 0);
+        // 只为第一个图表添加事件监听
+        window.addEventListener("resize", () => updatePosition(chart));
+        chart.getZr().on("click", onChartClick(chart, index));
+    }
 };
 
 // 初始化图表
@@ -264,10 +279,6 @@ onMounted(() => {
     props.timeRange.map((item, index) => {
         const chart = echarts.init(document.getElementById("chartRef" + index) as HTMLElement);
         setSingleChartOption(chart, index);
-        chartList.value.push(chart);
     });
-
-    console.log(chartList.value);
 });
 </script>
-<style lang="less" scoped></style>
