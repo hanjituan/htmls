@@ -11,6 +11,7 @@
 <script lang="ts" setup>
 import * as echarts from "echarts";
 import { onMounted, ref } from "vue";
+import dayjs from "dayjs";
 
 const props = defineProps({
     timeRange: {
@@ -18,6 +19,8 @@ const props = defineProps({
         default: [],
     },
 });
+const dateRange = ref<any>([]);
+const activeTime = ref<any>(null);
 const chartList: any = ref([]);
 const activeIndex = ref(0);
 const symbolSize = 20;
@@ -68,22 +71,41 @@ const hideTooltip = (chart: echarts.EChartsType) => {
 };
 
 // 点击后更新位置
-const updatePostion = (position, chartData, pointNumber) => {
-    // 获取点击位置对应的x坐标, 比较两个点 x 坐标, 差值较小的一个座位替换点
+const updatePostion = (position, dragPoints) => {
+    // 判断 activeTime 和dateRange时间比较 差值较小的一个座位替换点
     if (Array.isArray(position)) {
         const x = position[0];
-        const point0X = chartData[0][0];
-        const point1X = chartData[1][0];
-        const isPoint0First = Math.abs(x - point0X) < Math.abs(x - point1X);
+        const point0X = dayjs(dateRange.value[0]).valueOf();
+        const point1X = dayjs(dateRange.value[1]).valueOf();
+        const isPoint0First =
+            Math.abs(dayjs(activeTime.value).valueOf() - point0X) <
+            Math.abs(dayjs(activeTime.value).valueOf() - point1X);
         const dataIndex = isPoint0First ? 0 : 1;
-        chartData[dataIndex] = [x, 0];
+        dragPoints[dataIndex] = [x, 0];
+    }
+};
+
+const updateRange = () => {
+    // 更新时间范围, 判断 activeTime 和 dateRange 中的时间差值, 哪个差值小则更换 dateRange 中的时间
+    const point0X = dayjs(dateRange.value[0]).valueOf();
+    const point1X = dayjs(dateRange.value[1]).valueOf();
+    const isPoint0First =
+        Math.abs(dayjs(activeTime.value).valueOf() - point0X) < Math.abs(dayjs(activeTime.value).valueOf() - point1X);
+
+    if (isPoint0First) {
+        dateRange.value[0] = dayjs(activeTime.value).format("YYYY-MM-DD HH:mm:ss");
+    } else {
+        dateRange.value[1] = dayjs(activeTime.value).format("YYYY-MM-DD HH:mm:ss");
     }
 };
 
 const updateChartData = (chart: echarts.EChartsType, clickEvent = { params: {}, position: {} }) => {
-    const { dragPoints, symbolSizes, pointNumber } = getChartById(chart.id);
+    const { dragPoints, symbolSizes } = getChartById(chart.id);
     const { position } = clickEvent;
-    updatePostion(position, dragPoints, pointNumber);
+    updatePostion(position, dragPoints);
+    updateRange();
+
+    // console.log(activeTime.value, dateRange.value);
 
     const x1 = Math.min(dragPoints[0][0], dragPoints[1][0]);
     const x2 = Math.max(dragPoints[0][0], dragPoints[1][0]);
@@ -98,7 +120,6 @@ const updateChartData = (chart: echarts.EChartsType, clickEvent = { params: {}, 
             {
                 id: "a",
                 type: "line",
-                smooth: true,
                 symbolSize: (value, params) => {
                     return symbolSizes[params.dataIndex];
                 }, // TODO: 拖拽点的 icon 大小
@@ -117,9 +138,6 @@ const updateChartData = (chart: echarts.EChartsType, clickEvent = { params: {}, 
                 symbolSize: 0,
             },
         ],
-    });
-
-    chart.setOption({
         graphic: dragPoints.map((item, idx) => ({
             position: chart.convertToPixel("grid", item),
             type: "image",
@@ -151,7 +169,16 @@ const onPointDragging = (chart: echarts.EChartsType, dataIndex: number, pos: num
     newPos[0] = Math.min(Math.max(newPos[0], 0), 24);
     newPos[1] = dragPoints[dataIndex][1];
     dragPoints[dataIndex] = newPos;
+    const hour = newPos[0].toFixed(0);
+    if (hour < 24) {
+        // 拖拽的时候, 只更新小时
+        updateActiveTime(dayjs(activeTime.value).set("hour", hour).format("YYYY-MM-DD HH:mm:ss"));
+    }
     updateChartData(chart);
+};
+
+const updateActiveTime = (time: string) => {
+    activeTime.value = time;
 };
 
 // 设置多组 echarts 实例, 初始化的数据
@@ -163,19 +190,27 @@ const setChartInstance = (chart: echarts.EChartsType, index: number) => {
     ];
     // 第一个点, 第二个点
     let symbolSizes = [0, 0];
-    let pointNumber = 0;
-
+    const times = [dayjs(props.timeRange[0]).startOf("day"), dayjs(props.timeRange[0]).startOf("day")];
+    activeTime.value = dayjs(props.timeRange[0]).startOf("day").add(12, "hour").format("YYYY-MM-DD HH:mm:ss");
     if (index === 0) {
         dragPoints = [
             [0, 0],
             [12, 0],
         ];
         symbolSizes = [symbolSize, symbolSize];
-        pointNumber = 2;
+        // 设置为 0 点到 12 点
+        times[0] = dayjs(props.timeRange[0]).startOf("day");
+        times[1] = dayjs(props.timeRange[0]).startOf("day").add(12, "hour");
     }
+    setTimeRange(times.map((item) => item.format("YYYY-MM-DD HH:mm:ss")));
     if (!chartDataMap.has(chart.id)) {
-        chartDataMap.set(chart.id, { dragPoints, symbolSizes, pointNumber });
+        chartDataMap.set(chart.id, { dragPoints, symbolSizes });
     }
+};
+
+// 设置时间
+const setTimeRange = (timeRange: string[] | Date[]) => {
+    dateRange.value = timeRange;
 };
 
 // 初始图表配置
@@ -213,7 +248,6 @@ const getChartOption = (chart: echarts.EChartsType, index: number): echarts.ECha
             {
                 id: "a",
                 type: "line",
-                smooth: true,
                 symbolSize: (value, params) => {
                     return symbolSizes[params.dataIndex];
                 },
@@ -248,11 +282,32 @@ const getChartOption = (chart: echarts.EChartsType, index: number): echarts.ECha
 
 const onChartClick = (chart: echarts.EChartsType, index: number) => (params: any) => {
     activeIndex.value = index;
+
+    // 确保图表配置已经完成初始化
+    const option = chart.getOption();
+    if (!option || !option.xAxis || !option.yAxis) {
+        console.error("Chart not properly initialized");
+        return;
+    }
     // 获取点击的坐标
     const pointInPixel = [params.offsetX, params.offsetY];
     // 将像素坐标转换为数据坐标
-    const pointInData = chart.convertFromPixel({ seriesIndex: 0 }, pointInPixel);
-    // console.log("Clicked position in data:", pointInData);
+    const pointInData = chart.convertFromPixel({ gridIndex: 0 }, pointInPixel);
+    console.log(pointInData);
+
+    if (!pointInData) {
+        console.error("pointInData is undefined", params);
+        return;
+    }
+    if (pointInData[0] < 0 || pointInData[0] > 24) {
+        return; // 点击位置不在有效范围内
+    }
+    pointInData[0] = Math.round(pointInData[0]); // 确保 x 坐标是整数
+    // 获取对应的点击点的时间
+    activeTime.value = dayjs(props.timeRange[index])
+        .startOf("day")
+        .add(pointInData[0], "hour")
+        .format("YYYY-MM-DD HH:mm:ss");
 
     /**
      * 如果点击的是第一组, 则不处理,
@@ -260,24 +315,21 @@ const onChartClick = (chart: echarts.EChartsType, index: number) => (params: any
      * 点击的是第三组, 重复第二点的逻辑, 且将第二组第一个拖拽点位置设置为开始 0 ,第二个拖拽点设置位置设置到最后(24), 两个且拖拽点大小设置为 0
      */
     const currentData = getChartById(chart.id);
-
     if (index === 1) {
         const chart0 = chartList.value[index - 1];
         const chartData1 = getChartById(chart0.id);
         chartData1.dragPoints[1] = [24, 0]; // 第一组第二个拖拽点设置到最后(24)
         chartData1.symbolSizes[1] = 0; // 拖拽点大小设置为 0
         currentData.symbolSizes = [0, 20]; // 第二组第一个拖拽点设置为开始(0)
-
         updateChartData(chart0, { params, position: [24, 0] }); // 更新图表
     } else if (index === 2) {
-        currentData.dragPoints[1] = [24, 0]; // 第一组第二个拖拽点设置到最后(24)
-        currentData.symbolSizes[1] = 0; // 拖拽点大小设置为 0
-        currentData.dragPoints[0] = [0, 0]; // 第二组第一个拖拽点设置为开始(0)
-        currentData.dragPoints[1] = [24, 0]; // 第二组第二个拖拽点设置到最后(24)
-        currentData.symbolSizes[0] = 0; // 两个拖拽点大小设置为 0
-        currentData.symbolSizes[1] = 0;
+        // const chartX = chartList.value[index - 1];
+        // const chartDataX = getChartById(chartX.id);
+        // chartDataX.dragPoints[1] = [24, 0]; // 第一组第二个拖拽点设置到最后(24)
+        // chartDataX.symbolSizes[1] = 0; // 拖拽点大小设置为 0
+        // currentData.dragPoints[0] = [0, 0]; // 第二组第一个拖拽点设置为开始(0)
+        // currentData.dragPoints[1] = [24, 0]; // 第二组第二个拖拽点设置到最后(24)
     }
-
     updateChartData(chart, { params, position: pointInData }); // 更新图表
 };
 
