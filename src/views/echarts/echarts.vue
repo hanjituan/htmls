@@ -76,6 +76,7 @@ const updatePostion = (position, dragPoints) => {
     // 判断 activeTime 和dateRange时间比较 差值较小的一个作为替换点
     if (Array.isArray(position)) {
         const x = position[0];
+        if (x == -1) return;
         const point0X = dayjs(dateRange.value[0]).valueOf();
         const point1X = dayjs(dateRange.value[1]).valueOf();
         const isPoint0First =
@@ -191,7 +192,7 @@ const setChartInstance = (chart: echarts.EChartsType, index: number) => {
     }
     setTimeRange(times.map((item) => item.format("YYYY-MM-DD HH:mm:ss")));
     if (!chartDataMap.has(chart.id)) {
-        chartDataMap.set(chart.id, { dragPoints, symbolSizes });
+        chartDataMap.set(chart.id, { dragPoints, symbolSizes, time: props.timeRange[index] });
     }
 };
 
@@ -285,29 +286,20 @@ const onChartClick = (chart: echarts.EChartsType, index: number) => (params: any
         return; // 点击位置不在有效范围内
     }
     pointInData[0] = Math.round(pointInData[0]); // 确保 x 坐标是整数
-    // 获取对应的点击点的时间
-    // activeTime.value = dayjs(props.timeRange[index]).set("hour", pointInData[0]).format("YYYY-MM-DD HH:mm:ss");
     activeTime.value =
         pointInData[0] === 24
             ? dayjs(props.timeRange[index]).endOf("day").format("YYYY-MM-DD HH:mm:ss")
             : dayjs(props.timeRange[index]).set("hour", pointInData[0]).format("YYYY-MM-DD HH:mm:ss");
-    /**
-     *
-     * 点击的是第二组, 则将第一组第二个拖拽点设置位置设置到最后(24), 且拖拽点大小设置为 0
-     * 点击的是第三组, 重复第二点的逻辑, 且将第二组第一个拖拽点位置设置为开始 0 ,第二个拖拽点设置位置设置到最后(24), 两个且拖拽点大小设置为 0
-     */
 
-    /**
-     * 统一处理逻辑
-     *  点击的某一组, 判断当前点击的日期activeTime, 和目前激活的一组日期dateRange 是否一致,
-     *  - 一致的话, 判断差值更新差值更小的拖拽点位置
-     *  - 不一致, 更新差值较小的拖拽点位置,
-     */
+    const xValue = pointInData[0];
+    const time = props.timeRange[activeIndex.value];
+    // 点击的时间
+    const currentTime = dayjs(time).set("hour", xValue).valueOf();
+
     const timeDiff0 = dayjs(activeTime.value).diff(dayjs(dateRange.value[0]));
     const timeDiff1 = dayjs(activeTime.value).diff(dayjs(dateRange.value[1]));
     const diffIndex = Math.abs(timeDiff0) < Math.abs(timeDiff1) ? 0 : 1;
     dateRange.value[diffIndex] = activeTime.value;
-    console.log(activeTime.value, dateRange.value);
     // 判断dateRange 的日期是否为同一天
     if (dayjs(dateRange.value[0]).isSame(dateRange.value[1], "day")) {
         // 如果是同一天, 将其他组的拖拽点大小设置为 0, 且拖拽点位置设置为 0
@@ -338,89 +330,59 @@ const onChartClick = (chart: echarts.EChartsType, index: number) => (params: any
         const endIndex = props.timeRange.findIndex((time) => dayjs(time).isSame(dateRange.value[1], "day"));
         console.log(startIndex, endIndex);
 
-        chartList.value.forEach((chart, i) => {
-            const chartData = getChartById(chart.id);
-            if (startIndex === i) {
+        const startChart = chartList.value[startIndex];
+        const endChart = chartList.value[endIndex];
+        const startChartData = getChartById(startChart.id);
+        const endChartData = getChartById(endChart.id);
+
+        // 先判断点击距离currentTime  哪个拖拽点更近 dateRange
+        const isCloseStart =
+            Math.abs(currentTime - dayjs(dateRange.value[0]).valueOf()) <
+            Math.abs(currentTime - dayjs(dateRange.value[1]).valueOf());
+        // 在更新近的那个拖拽点的位置, 以及覆盖范围
+        if (isCloseStart) {
+            startChartData.dragPoints[0] = [xValue, 0];
+            startChartData.dragPoints[1] = [24, 0];
+            startChartData.symbolSizes = [20, 0];
+            updateChartData(startChart, { params, position: [xValue, 0] });
+
+            endChartData.dragPoints[0] = [0, 0];
+            endChartData.symbolSizes = [0, 20];
+            updateChartData(endChart, { params, position: [0, 0] });
+        } else {
+            startChartData.dragPoints[1] = [24, 0];
+            startChartData.symbolSizes = [20, 0];
+            updateChartData(startChart, { params, position: [24, 0] });
+
+            endChartData.dragPoints[1] = [xValue, 0];
+            endChartData.symbolSizes = [0, 20];
+            updateChartData(endChart, { params, position: [xValue, 0] });
+        }
+
+        // 如果 startIndex 和 endIndex 之前没有数据了, 则将 startIndex 和 endIndex 之外的拖拽点设置为 [0,0] , [0,0], 拖拽点大小都设置为 0
+        if (Math.abs(startIndex - endIndex) === 1) {
+            chartList.value.forEach((chart, i) => {
+                const chartData = getChartById(chart.id);
+                if (i < startIndex || i > endIndex) {
+                    chartData.dragPoints[0] = [0, 0];
+                    chartData.dragPoints[1] = [0, 0];
+                    chartData.symbolSizes = [0, 0];
+                    updateChartData(chart, { params, position: [0, 0] });
+                }
+            });
+        } else {
+            // 开始和结束之间的拖拽点, 设置为[ 0,0] , [24,0],  拖拽点大小都设置为 0
+            for (let i = startIndex + 1; i < endIndex; i++) {
+                const chart = chartList.value[i];
+                const chartData = getChartById(chart.id);
+                chartData.dragPoints[0] = [0, 0];
                 chartData.dragPoints[1] = [24, 0];
-                chartData.symbolSizes = [20, 0];
-                updateChartData(chart, { params, position: [24, 0] });
-            } else if (endIndex === i) {
-                chartData.dragPoints[0] = [0, 0];
-                chartData.dragPoints[1] = [pointInData[0], 0];
-                chartData.symbolSizes = [0, 20];
-                updateChartData(chart, { params, position: [pointInData[0], , 0] });
-            } else {
-                chartData.dragPoints[0] = [0, 0];
-                chartData.dragPoints[1] = [0, 0];
                 chartData.symbolSizes = [0, 0];
-                updateChartData(chart, { params, position: [0, 0] });
+                // -1 标识不需要更新为位置, 两个都已经设置了
+                updateChartData(chart, { params, position: [-1, 0] });
             }
-        });
-        chartList.value.forEach((chart, i) => {
-            const chartData = getChartById(chart.id);
-            console.log(chartData);
-        });
-
-        // 先全部重置, 后续测试看看有没有问题
-        // chartList.value.forEach((chart, i) => {
-        //     const { dragPoints, symbolSizes } = getChartById(chart.id);
-        //     console.log(dragPoints, symbolSizes);
-        //     dragPoints[0] = [0, 0];
-        //     dragPoints[1] = [0, 0];
-        //     symbolSizes[0] = 0;
-        //     symbolSizes[1] = 0;
-        //     updateChartData(chart);
-        // });
-
-        // console.log(props.timeRange);
-        // const startIndex = props.timeRange.findIndex((time) => dayjs(time).isSame(dateRange.value[0], "day"));
-        // const endIndex = props.timeRange.findIndex((time) => dayjs(time).isSame(dateRange.value[1], "day"));
-        // console.log(startIndex, endIndex);
-        // if (startIndex === -1 || endIndex === -1) {
-        //     console.log("时间有问题啊");
-        //     return;
-        // }
-
-        // const startData = getChartById(chartList.value[startIndex].id);
-        // const endData = getChartById(chartList.value[endIndex].id);
-        // console.log(startData, endData);
-
-        // // startData.dragPoints[0] = [pointInData[0], 0];
-        // // startData.dragPoints[1] = [pointInData[0], 0];
-        // // endData.dragPoints[1] = [pointInData[0], 0];
-        // // startData.symbolSizes[1] = 20;
-        // // endData.symbolSizes[0] = 20;
-
-        // updateChartData(chartList.value[startIndex], { params, position: [0, 0] });
-        // updateChartData(chartList.value[endIndex], { params, position: [0, 0] });
+        }
     }
-
-    // if (index === 0) {
-    //     // 如果点击的是第一组, 将其余组的拖拽点设置为 0, 且拖拽点大小设置为 0, 第一组的拖拽点大小设置为 20
-    //     currentData.symbolSizes = [20, 20];
-    //     // 找到其余组的 echart 实例
-    //     const chart1 = chartList.value[index + 1];
-    //     const chartData1 = getChartById(chart1.id);
-    //     chartData1.dragPoints[0] = [0, 0]; // 第一组第一个拖拽点设置到开始(0)
-    //     chartData1.dragPoints[1] = [0, 0]; // 第一组第二个拖拽点设置到最后(24)
-    //     chartData1.symbolSizes = [0, 0]; // 拖拽点大小设置为 0
-    //     updateChartData(chart1, { params, position: [0, 0] }); // 更新图表
-    // } else if (index === 1) {
-    //     const chart0 = chartList.value[index - 1];
-    //     const chartData1 = getChartById(chart0.id);
-    //     chartData1.dragPoints[1] = [24, 0]; // 第一组第二个拖拽点设置到最后(24)
-    //     chartData1.symbolSizes[1] = 0; // 拖拽点大小设置为 0
-    //     currentData.symbolSizes = [0, 20]; // 第二组第一个拖拽点设置为开始(0)
-    //     updateChartData(chart0, { params, position: [24, 0] }); // 更新图表
-    // } else if (index === 2) {
-    //     // const chartX = chartList.value[index - 1];
-    //     // const chartDataX = getChartById(chartX.id);
-    //     // chartDataX.dragPoints[1] = [24, 0]; // 第一组第二个拖拽点设置到最后(24)
-    //     // chartDataX.symbolSizes[1] = 0; // 拖拽点大小设置为 0
-    //     // currentData.dragPoints[0] = [0, 0]; // 第二组第一个拖拽点设置为开始(0)
-    //     // currentData.dragPoints[1] = [24, 0]; // 第二组第二个拖拽点设置到最后(24)
-    // }
-    // updateChartData(chart, { params, position: pointInData }); // 更新图表
 };
 
 const setSingleChartOption = (chart: echarts.ECharts, index: number) => {
