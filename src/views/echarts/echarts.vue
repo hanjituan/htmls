@@ -32,7 +32,7 @@ const chartDataMap = new Map();
 const startIcon = "https://img.icons8.com/material-outlined/24/000000/left2.png";
 const endIcon = "https://img.icons8.com/material-outlined/24/000000/right2.png";
 
-const getChartById = (id) => {
+const getChartById = (id): { dragPoints: any; symbolSizes: any } => {
     const chartData = chartDataMap.get(id);
     return chartData;
 };
@@ -93,7 +93,6 @@ const updateRange = () => {
     const point1X = dayjs(dateRange.value[1]).valueOf();
     const isPoint0First =
         Math.abs(dayjs(activeTime.value).valueOf() - point0X) < Math.abs(dayjs(activeTime.value).valueOf() - point1X);
-
     if (isPoint0First) {
         dateRange.value[0] = dayjs(activeTime.value).format("YYYY-MM-DD HH:mm:ss");
     } else {
@@ -111,9 +110,6 @@ const updateChartData = (chart: echarts.EChartsType, clickEvent = { params: {}, 
     const x2 = Math.max(dragPoints[0][0], dragPoints[1][0]);
     const newSeriesData = generateInitialPoints(x1, x2);
 
-    const point0X = dragPoints[0][0];
-    const point1X = dragPoints[1][0];
-    const isPoint0First = point0X < point1X;
     chart.setOption({
         series: [
             // 拖拽点
@@ -143,24 +139,35 @@ const updateChartData = (chart: echarts.EChartsType, clickEvent = { params: {}, 
 };
 
 const onDragEnd = (chart: echarts.EChartsType, dataIndex: number, pos: number[]) => {
-    const { dragPoints, symbolSizes } = getChartById(chart.id);
+    const { dragPoints } = getChartById(chart.id);
     const newPos = chart.convertFromPixel("grid", pos);
     newPos[0] = Math.round(Math.min(Math.max(newPos[0], 0), 24));
     newPos[1] = dragPoints[dataIndex][1];
     dragPoints[dataIndex] = newPos;
+
+    //  判断拖拽点 是否拖拽到另一个之后, 如果是则交换位置
+    const point0X = dragPoints[0][0];
+    const point1X = dragPoints[1][0];
+    const isPoint0First = point0X < point1X;
+    if (!isPoint0First) {
+        const temp = dragPoints[0];
+        dragPoints[0] = dragPoints[1];
+        dragPoints[1] = temp;
+    }
     updateChartData(chart);
 };
 
 const onPointDragging = (chart: echarts.EChartsType, dataIndex: number, pos: number[]) => {
-    const { dragPoints, symbolSizes } = getChartById(chart.id);
+    const { dragPoints } = getChartById(chart.id);
     const newPos = chart.convertFromPixel("grid", pos);
     newPos[0] = Math.min(Math.max(newPos[0], 0), 24);
     newPos[1] = dragPoints[dataIndex][1];
     dragPoints[dataIndex] = newPos;
     const hour = newPos[0].toFixed(0);
-    if (hour < 24) {
+    if (+hour < 24) {
         // 拖拽的时候, 只更新小时
-        updateActiveTime(dayjs(activeTime.value).set("hour", hour).format("YYYY-MM-DD HH:mm:ss"));
+        const time = dateRange.value[dataIndex];
+        updateActiveTime(dayjs(time).set("hour", +hour).format("YYYY-MM-DD HH:mm:ss"));
     }
     updateChartData(chart);
 };
@@ -179,7 +186,7 @@ const setChartInstance = (chart: echarts.EChartsType, index: number) => {
     // 第一个点, 第二个点
     let symbolSizes = [0, 0];
     const times = [dayjs(props.timeRange[0]).startOf("day"), dayjs(props.timeRange[0]).startOf("day")];
-    activeTime.value = dayjs(props.timeRange[0]).startOf("day").add(12, "hour").format("YYYY-MM-DD HH:mm:ss");
+    updateActiveTime(dayjs(props.timeRange[0]).startOf("day").add(12, "hour").format("YYYY-MM-DD HH:mm:ss"));
     if (index === 0) {
         dragPoints = [
             [0, 0],
@@ -212,7 +219,7 @@ const getChartOption = (chart: echarts.EChartsType, index: number): echarts.ECha
         tooltip: {
             triggerOn: "none",
             formatter: function (params) {
-                return "X: " + params.data[0].toFixed(2) + "<br>Y: " + params.data[1].toFixed(2);
+                return `${dayjs(props.timeRange[index]).format("MM/DD")}: ${params.data[0].toFixed(0)}:00`;
             },
         },
         grid: { top: "40%", bottom: "40%" },
@@ -328,7 +335,6 @@ const onChartClick = (chart: echarts.EChartsType, index: number) => (params: any
     } else {
         const startIndex = props.timeRange.findIndex((time) => dayjs(time).isSame(dateRange.value[0], "day"));
         const endIndex = props.timeRange.findIndex((time) => dayjs(time).isSame(dateRange.value[1], "day"));
-        console.log(startIndex, endIndex);
 
         const startChart = chartList.value[startIndex];
         const endChart = chartList.value[endIndex];
@@ -433,26 +439,6 @@ const setDragPointer = (chart: echarts.ECharts) => {
         console.log(error);
     }
 };
-
-// 直接将额外数据挂载 echarts 实例上
-// const setExtraData = (chart: echarts.ECharts, index: number) => {
-//     // 第一组默认拖拽点是 [0, 0] 和 [12, 0], 其他都是 [0,0] 和 [0, 0]
-//     const dragPoints =
-//         index === 0
-//             ? [
-//                   [0, 0],
-//                   [12, 0],
-//               ]
-//             : [
-//                   [0, 0],
-//                   [0, 0],
-//               ];
-//     const symbolSizes = index === 0 ? [symbolSize, symbolSize] : [0, 0];
-//     chart.extraData = {
-//         dragPoints,
-//         symbolSizes,
-//     };
-// };
 
 // 初始化图表
 onMounted(() => {
