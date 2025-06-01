@@ -315,6 +315,17 @@ const onChartClick = (chart: echarts.EChartsType, index: number) => (params: any
             if (i === activeIndex.value) {
                 // 判断 pointInData[0] 距离 dragPoints[0] 和 dragPoints[1] 的距离, 更新距离更小的拖拽点位置
                 if (
+                    Math.abs(pointInData[0] - chartData.dragPoints[0][0]) ===
+                    Math.abs(pointInData[0] - chartData.dragPoints[1][0])
+                ) {
+                    // 判断点击的位置 和chartData.dragPoints[0][0]的位置,
+                    if (pointInData[0] < chartData.dragPoints[0][0]) {
+                        chartData.dragPoints[0] = [pointInData[0], 0];
+                    } else {
+                        chartData.dragPoints[1] = [pointInData[0], 0];
+                    }
+                    pointInData[0] = -1; // 不需要更新位置了, 这里已经改好了
+                } else if (
                     Math.abs(pointInData[0] - chartData.dragPoints[0][0]) <
                     Math.abs(pointInData[0] - chartData.dragPoints[1][0])
                 ) {
