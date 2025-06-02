@@ -1,7 +1,8 @@
 <template>
     <div>
+        子组件: {{ dateRange }} {{ activeTime }}
         <div
-            v-for="(time, index) in timeRange"
+            v-for="(time, index) in timeList"
             :ref="`chartRef${index}`"
             :id="`chartRef${index}`"
             class="chart-wrap w-[600px] h-[100px] p-4 rounded border"
@@ -10,10 +11,14 @@
 </template>
 <script lang="ts" setup>
 import * as echarts from "echarts";
-import { onMounted, ref } from "vue";
+import { onMounted, ref, watch } from "vue";
 import dayjs from "dayjs";
 
 const props = defineProps({
+    timeList: {
+        type: Array<string>,
+        default: [],
+    },
     timeRange: {
         type: Array<string>,
         default: [],
@@ -21,9 +26,9 @@ const props = defineProps({
 });
 const dateRange = ref<any>([]); // 当前时间范围
 const activeTime = ref<any>(null); // 当前激活(点击)的时间点
-const chartList: any = ref([]);
-const activeIndex = ref(0);
-const symbolSize = 20;
+const chartList: any = ref([]); // 图表实例列表
+const activeIndex = ref(0); // 当前激活的图表索引
+const symbolSize = 20; // 拖拽点的大小
 const yValue = 2; // y轴固定值
 // 为每个图表创建独立的数据存储
 const chartDataMap = new Map();
@@ -71,6 +76,21 @@ const hideTooltip = (chart: echarts.EChartsType) => {
     });
 };
 
+const emit = defineEmits(["update:timeRange"]);
+
+const emitTimeRange = () => {
+    emit("update:timeRange", dateRange.value);
+};
+
+// watch(
+//     () => dateRange.value,
+//     () => {
+//         console.log("dateRange change");
+//         emitTimeRange();
+//     },
+//     { deep: true, immediate: true }
+// );
+
 // 点击后更新位置
 const updatePostion = (position, dragPoints) => {
     // 判断 activeTime 和dateRange时间比较 差值较小的一个作为替换点
@@ -100,7 +120,7 @@ const updateRange = () => {
     }
 };
 
-const updateChartData = (chart: echarts.EChartsType, clickEvent = { params: {}, position: {} }) => {
+const updateChartData = (chart: echarts.EChartsType, clickEvent = { position: {} }) => {
     const { dragPoints, symbolSizes } = getChartById(chart.id);
     const { position } = clickEvent;
     updatePostion(position, dragPoints);
@@ -155,6 +175,7 @@ const onDragEnd = (chart: echarts.EChartsType, dataIndex: number, pos: number[])
         dragPoints[1] = temp;
     }
     updateChartData(chart);
+    emitTimeRange();
 };
 
 const onPointDragging = (chart: echarts.EChartsType, dataIndex: number, pos: number[]) => {
@@ -164,10 +185,13 @@ const onPointDragging = (chart: echarts.EChartsType, dataIndex: number, pos: num
     newPos[1] = dragPoints[dataIndex][1];
     dragPoints[dataIndex] = newPos;
     const hour = newPos[0].toFixed(0);
+    const time = dateRange.value[dataIndex];
     if (+hour < 24) {
         // 拖拽的时候, 只更新小时
-        const time = dateRange.value[dataIndex];
         updateActiveTime(dayjs(time).set("hour", +hour).format("YYYY-MM-DD HH:mm:ss"));
+    }
+    if (+hour === 24) {
+        updateActiveTime(dayjs(time).endOf("day").format("YYYY-MM-DD HH:mm:ss"));
     }
     updateChartData(chart);
 };
@@ -185,8 +209,8 @@ const setChartInstance = (chart: echarts.EChartsType, index: number) => {
     ];
     // 第一个点, 第二个点
     let symbolSizes = [0, 0];
-    const times = [dayjs(props.timeRange[0]).startOf("day"), dayjs(props.timeRange[0]).startOf("day")];
-    updateActiveTime(dayjs(props.timeRange[0]).startOf("day").add(12, "hour").format("YYYY-MM-DD HH:mm:ss"));
+    const times = [dayjs(props.timeList[0]).startOf("day"), dayjs(props.timeList[0]).startOf("day")];
+    updateActiveTime(dayjs(props.timeList[0]).startOf("day").add(12, "hour").format("YYYY-MM-DD HH:mm:ss"));
     if (index === 0) {
         dragPoints = [
             [0, 0],
@@ -194,18 +218,18 @@ const setChartInstance = (chart: echarts.EChartsType, index: number) => {
         ];
         symbolSizes = [symbolSize, symbolSize];
         // 设置为 0 点到 12 点
-        times[0] = dayjs(props.timeRange[0]).startOf("day");
-        times[1] = dayjs(props.timeRange[0]).startOf("day").add(12, "hour");
+        times[0] = dayjs(props.timeList[0]).startOf("day");
+        times[1] = dayjs(props.timeList[0]).startOf("day").add(12, "hour");
     }
     setTimeRange(times.map((item) => item.format("YYYY-MM-DD HH:mm:ss")));
     if (!chartDataMap.has(chart.id)) {
-        chartDataMap.set(chart.id, { dragPoints, symbolSizes, time: props.timeRange[index] });
+        chartDataMap.set(chart.id, { dragPoints, symbolSizes, time: props.timeList[index] });
     }
 };
 
 // 设置时间
-const setTimeRange = (timeRange: string[] | Date[]) => {
-    dateRange.value = timeRange;
+const setTimeRange = (timeList: string[] | Date[]) => {
+    dateRange.value = timeList;
 };
 
 // 初始图表配置
@@ -219,7 +243,7 @@ const getChartOption = (chart: echarts.EChartsType, index: number): echarts.ECha
         tooltip: {
             triggerOn: "none",
             formatter: function (params) {
-                return `${dayjs(props.timeRange[index]).format("MM/DD")}: ${params.data[0].toFixed(0)}:00`;
+                return `${dayjs(props.timeList[index]).format("MM/DD")} ${params.data[0].toFixed(0)}:00`;
             },
         },
         grid: { top: "40%", bottom: "40%" },
@@ -295,11 +319,11 @@ const onChartClick = (chart: echarts.EChartsType, index: number) => (params: any
     pointInData[0] = Math.round(pointInData[0]); // 确保 x 坐标是整数
     activeTime.value =
         pointInData[0] === 24
-            ? dayjs(props.timeRange[index]).endOf("day").format("YYYY-MM-DD HH:mm:ss")
-            : dayjs(props.timeRange[index]).set("hour", pointInData[0]).format("YYYY-MM-DD HH:mm:ss");
+            ? dayjs(props.timeList[index]).endOf("day").format("YYYY-MM-DD HH:mm:ss")
+            : dayjs(props.timeList[index]).set("hour", pointInData[0]).format("YYYY-MM-DD HH:mm:ss");
 
     const xValue = pointInData[0];
-    const time = props.timeRange[activeIndex.value];
+    const time = props.timeList[activeIndex.value];
     // 点击的时间
     const currentTime = dayjs(time).set("hour", xValue).valueOf();
 
@@ -344,8 +368,8 @@ const onChartClick = (chart: echarts.EChartsType, index: number) => (params: any
         });
         updateChartData(chartList.value[activeIndex.value], { params, position: pointInData }); // 更新图表
     } else {
-        const startIndex = props.timeRange.findIndex((time) => dayjs(time).isSame(dateRange.value[0], "day"));
-        const endIndex = props.timeRange.findIndex((time) => dayjs(time).isSame(dateRange.value[1], "day"));
+        const startIndex = props.timeList.findIndex((time) => dayjs(time).isSame(dateRange.value[0], "day"));
+        const endIndex = props.timeList.findIndex((time) => dayjs(time).isSame(dateRange.value[1], "day"));
 
         const startChart = chartList.value[startIndex];
         const endChart = chartList.value[endIndex];
@@ -400,6 +424,8 @@ const onChartClick = (chart: echarts.EChartsType, index: number) => (params: any
             }
         }
     }
+
+    emitTimeRange();
 };
 
 const setSingleChartOption = (chart: echarts.ECharts, index: number) => {
@@ -453,7 +479,7 @@ const setDragPointer = (chart: echarts.ECharts) => {
 
 // 初始化图表
 onMounted(() => {
-    props.timeRange.map((item, index) => {
+    props.timeList.map((item, index) => {
         const chart = echarts.init(document.getElementById("chartRef" + index) as HTMLElement);
         // setExtraData(chart, index);
         setSingleChartOption(chart, index);
